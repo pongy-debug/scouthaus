@@ -152,4 +152,4 @@ export function applyFilters(hs: House[], f: Filters) {
     && (f.availability === "all" || x.availability === f.availability));
 }
 
-export const AVAIL_LABEL: Record<Availability, string> = { available: "Available", "under-offer": "Under offer", let: "Let" };
+export const AVAIL_LABEL: Record<Availability, string> = { available: "Available", "under-offer": "Reserved", let: "Taken" };

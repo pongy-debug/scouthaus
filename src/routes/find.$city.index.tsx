@@ -11,8 +11,10 @@ import { MapFallback, useWebGL } from "@/components/hh/MapFallback";
 import { PropertyDrawer } from "@/components/hh/PropertyDrawer";
 import { HouseList } from "@/components/hh/HouseList";
 import { CompareDialog, MAX_COMPARE } from "@/components/hh/CompareDialog";
+import { AskMap } from "@/components/hh/AskMap";
+import type { MapAction } from "@/lib/hh/assistant";
 import { overviewPos } from "@/components/hh/overviewPos";
-import { CITIES, RISK_LAYERS, applyFilters, defaultFilters, findCity, project, rentRange, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { AVAIL_LABEL, CITIES, RISK_LAYERS, applyFilters, defaultFilters, findCity, project, rentRange, type Availability, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
 
 const StreetMap = lazy(() => import("@/components/hh/StreetMap"));
 
@@ -73,6 +75,15 @@ function FindMap() {
     return [...p, id];
   });
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setFilters((f) => ({ ...f, [k]: v }));
+  // Ask-the-map replies drive the same state as the manual controls.
+  const applyAction = (a: MapAction) => {
+    const target = a.houseId ? city.houses.find((h) => h.id === a.houseId) : undefined;
+    // A house the assistant opens must stay visible, so filters that would hide it are dropped.
+    setFilters(target && !applyFilters([target], a.filters).length ? defaultFilters(city) : a.filters);
+    setLayer(a.layer);
+    if (target) openHouse(target);
+    else if (a.areaId !== undefined) { setSelectedId(null); setArea(a.areaId); }
+  };
 
   const list = <HouseList groups={groups} grouped={!area} hoverId={hoverId} selectedId={selectedId} onHover={setHoverId} onPick={openHouse}
     availableOnly={filters.availability === "available"} onAvailableOnly={(v) => set("availability", v ? "available" : "all")} />;
@@ -107,7 +118,7 @@ function FindMap() {
         </label>
         <label className="flex items-center gap-2">Availability
           <select className={field} value={filters.availability} onChange={(e) => set("availability", e.target.value as Filters["availability"])}>
-            <option value="all">All</option><option value="available">Available</option><option value="under-offer">Under offer</option><option value="let">Let</option>
+            <option value="all">All</option>{(Object.keys(AVAIL_LABEL) as Availability[]).map((a) => <option key={a} value={a}>{AVAIL_LABEL[a]}</option>)}
           </select>
         </label>
         <span className="ml-auto font-mono">{houses.length} of {city.houses.length} houses</span>
@@ -142,6 +153,9 @@ function FindMap() {
             <Button size="sm" variant="secondary" aria-expanded={showList} onClick={toggleList}>Houses ({listed}) {showList ? <ChevronUp /> : <ChevronDown />}</Button>
           </div>
         </div>
+
+        <AskMap cityId={city.id} areas={city.areas} houses={city.houses} onAction={applyAction}
+          state={{ filters, layer, areaId: area?.id ?? null, selectedId: selected?.id ?? null }} />
 
         {!mobile && (showList || selected) && (
           <aside className="glass absolute bg-popover/95 bottom-9 right-3 top-14 z-20 flex w-[340px] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden" aria-label={selected ? "Property X-Ray" : "Houses"}>

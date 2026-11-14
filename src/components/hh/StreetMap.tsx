@@ -113,6 +113,8 @@ export default function StreetMap(props: StreetMapProps) {
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-left");
+    // Leave the bottom-left corner free for the Ask-the-map bubble.
+    const corner = map.getContainer().querySelector<HTMLElement>(".maplibregl-ctrl-bottom-left"); if (corner) corner.style.bottom = "52px";
     map.addControl(new maplibregl.AttributionControl({ compact: false, customAttribution: "© OpenStreetMap contributors" }), "bottom-right");
     let areaHover: number | null = null;
     const setAreaHover = (id: number | null) => {

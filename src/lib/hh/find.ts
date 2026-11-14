@@ -7,7 +7,9 @@ export interface Area {
 }
 export interface House {
   id: string; name: string; landlord: string; address: string; area: string; postcode: string;
-  lat: number; lng: number; availability: Availability; rent: number; bedrooms: number; propertyId?: string | undefined;
+  lat: number; lng: number; availability: Availability; rent: number; bedrooms: number;
+  /** EPC, heating, damp, noise and rent-benchmark telemetry shown in the X-Ray drawer. */
+  xray: Property;
 }
 export interface City { id: string; name: string; center: { lat: number; lng: number }; areas: Area[]; houses: House[] }
 
@@ -22,8 +24,24 @@ const DURHAM_AREAS: Area[] = [
   { id: "chester-le-street", name: "Chester-le-Street", postcode: "DH2/DH3", lat: 54.8580, lng: -1.5740, active: false, note: "≈9 km north" },
 ];
 
+/** Surveyed profile when the listing has one; other demo listings get a modelled profile seeded from their id. */
+function telemetry(hs: { id: string; postcode: string; address: string; rent: number }, areaName: string, propertyId?: string): Property {
+  const base = propertyId ? PROPERTIES.find((p) => p.id === propertyId) : undefined;
+  if (base) return base;
+  const seed = [...hs.id].reduce((s, c) => s + c.charCodeAt(0), 0);
+  const epcScore = 30 + (seed % 50);
+  const damp = 20 + ((seed * 7) % 65);
+  return {
+    id: hs.id, postcode: hs.postcode, address: hs.address, area: areaName, tag: "Demo listing", epc: epcFromScore(epcScore), epcScore,
+    bill: Math.round(300 - epcScore * 2.4), billFactors: epcScore > 60 ? ["Cavity wall insulation", "Double glazing"] : ["Solid brick walls", "Older boiler"],
+    damp, dampNote: damp >= 60 ? "Older terrace with cold wall surfaces — ventilate daily and check bedrooms for mould." : "Moderate-to-low condensation risk with normal ventilation.",
+    noise: 30 + ((seed * 3) % 60), rent: hs.rent, median: Math.round(hs.rent * (0.88 + (seed % 20) / 100)),
+  };
+}
+
 const h = (id: string, name: string, landlord: string, address: string, area: string, postcode: string, lat: number, lng: number, availability: Availability, rent: number, bedrooms: number, propertyId?: string): House =>
-  ({ id, name, landlord, address, area, postcode, lat, lng, availability, rent, bedrooms, propertyId });
+  ({ id, name, landlord, address, area, postcode, lat, lng, availability, rent, bedrooms,
+    xray: telemetry({ id, postcode, address, rent }, DURHAM_AREAS.find((a) => a.id === area)!.name, propertyId) });
 
 // Fictional demo listings placed on real Durham street coordinates.
 const DURHAM_HOUSES: House[] = [
@@ -79,17 +97,59 @@ export function areaStats(city: City, areaId: string) {
   return { count: hs.filter((x) => x.availability === "available").length, total: hs.length, avgRent: hs.length ? Math.round(hs.reduce((s, x) => s + x.rent, 0) / hs.length) : 0 };
 }
 
-/** The X-Ray drawer needs full property telemetry; demo houses without one get a modelled profile from their area. */
-export function houseToProperty(hs: House, area: Area): Property {
-  const base = hs.propertyId ? PROPERTIES.find((p) => p.id === hs.propertyId) : undefined;
-  if (base) return base;
-  const seed = [...hs.id].reduce((s, c) => s + c.charCodeAt(0), 0);
-  const epcScore = 30 + (seed % 50);
-  const damp = 20 + ((seed * 7) % 65);
-  return {
-    id: hs.id, postcode: hs.postcode, address: hs.address, area: area.name, tag: "Demo listing", epc: epcFromScore(epcScore), epcScore,
-    bill: Math.round(300 - epcScore * 2.4), billFactors: epcScore > 60 ? ["Cavity wall insulation", "Double glazing"] : ["Solid brick walls", "Older boiler"],
-    damp, dampNote: damp >= 60 ? "Older terrace with cold wall surfaces — ventilate daily and check bedrooms for mould." : "Moderate-to-low condensation risk with normal ventilation.",
-    noise: 30 + ((seed * 3) % 60), rent: hs.rent, median: Math.round(hs.rent * (0.88 + (seed % 20) / 100)), pos: [0, 0], floors: 2 + (seed % 3),
-  };
+/** Circle that covers an area's listed houses (areas without listings get a nominal circle on their centre). */
+export function areaCircle(city: City, a: Area): { lat: number; lng: number; r: number } {
+  const hs = city.houses.filter((x) => x.area === a.id);
+  if (!hs.length) return { lat: a.lat, lng: a.lng, r: 220 };
+  const lats = hs.map((x) => x.lat), lngs = hs.map((x) => x.lng);
+  const lat = (Math.min(...lats) + Math.max(...lats)) / 2, lng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+  const r = Math.max(...hs.map((x) => { const [dx, dz] = project(x.lat, x.lng, { lat, lng }, 1000); return Math.hypot(dx, dz); }));
+  return { lat, lng, r: Math.round(r + 45) };
 }
+
+// ── Risk layers ──────────────────────────────────────────────────────────────
+export type RiskLayer = "all" | "epc" | "hmo" | "crime";
+export type Risk = "low" | "med" | "high";
+export const RISK_LAYERS: { id: RiskLayer; label: string; legend: Partial<Record<Risk, string>> }[] = [
+  { id: "all", label: "All Risks", legend: { low: "Lower risk", med: "Some risk", high: "Higher risk" } },
+  { id: "epc", label: "EPC & Heating Cost", legend: { low: "EPC A–C", med: "EPC D", high: "EPC E–G" } },
+  { id: "hmo", label: "HMO Licensing", legend: { low: "Under 5 beds", med: "5+ beds: licence needed" } },
+  { id: "crime", label: "Crime & Noise", legend: { low: "Quiet", med: "Moderate", high: "Loud at night" } },
+];
+
+/** Mandatory HMO licensing in England applies to 5+ occupants in 2+ households. */
+export const needsHmoLicence = (hs: House) => hs.bedrooms >= 5;
+
+export function riskOf(hs: House, layer: RiskLayer): Risk {
+  const x = hs.xray;
+  if (layer === "epc") return x.epcScore >= 69 ? "low" : x.epcScore >= 55 ? "med" : "high";
+  if (layer === "hmo") return needsHmoLicence(hs) ? "med" : "low";
+  if (layer === "crime") return x.noise >= 70 ? "high" : x.noise >= 40 ? "med" : "low";
+  const avg = (100 - x.epcScore + x.damp + x.noise) / 3;
+  return avg >= 60 ? "high" : avg >= 40 ? "med" : "low";
+}
+
+export function riskLabel(hs: House, layer: RiskLayer): string {
+  const x = hs.xray;
+  if (layer === "epc") return `EPC ${x.epc} · £${x.bill}/mo heating`;
+  if (layer === "hmo") return needsHmoLicence(hs) ? "HMO licence needed" : "No mandatory HMO licence";
+  if (layer === "crime") return `Noise ${x.noise}/100`;
+  return { low: "Lower risk", med: "Some risk", high: "Higher risk" }[riskOf(hs, "all")];
+}
+
+/** Per person, in winter: rent (pppw × 52 ÷ 12) plus an equal share of the predicted heating bill. */
+export function trueMonthlyCost(hs: House) {
+  const rent = Math.round((hs.rent * 52) / 12), energy = Math.round(hs.xray.bill / hs.bedrooms);
+  return { rent, energy, total: rent + energy };
+}
+
+// ── Filters ──────────────────────────────────────────────────────────────────
+export interface Filters { maxRent: number; minBeds: number; epc: "any" | "C" | "D"; availability: "all" | Availability }
+export const rentRange = (city: City) => ({ min: Math.min(...city.houses.map((x) => x.rent)), max: Math.max(...city.houses.map((x) => x.rent)) });
+export const defaultFilters = (city: City): Filters => ({ maxRent: rentRange(city).max, minBeds: 0, epc: "any", availability: "all" });
+export function applyFilters(hs: House[], f: Filters) {
+  return hs.filter((x) => x.rent <= f.maxRent && x.bedrooms >= f.minBeds && (f.epc === "any" || x.xray.epc <= f.epc)
+    && (f.availability === "all" || x.availability === f.availability));
+}
+
+export const AVAIL_LABEL: Record<Availability, string> = { available: "Available", "under-offer": "Under offer", let: "Let" };

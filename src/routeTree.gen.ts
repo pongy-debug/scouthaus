@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as ScannerRouteImport } from './routes/scanner'
 import { Route as FindIndexRouteImport } from './routes/find.index'
 import { Route as FindCityIndexRouteImport } from './routes/find.$city.index'
 import { Route as FindCityAreaRouteImport } from './routes/find.$city.$area'
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScannerRoute = ScannerRouteImport.update({
+  id: '/scanner',
+  path: '/scanner',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FindIndexRoute = FindIndexRouteImport.update({
@@ -44,6 +50,7 @@ const FindCityAreaRoute = FindCityAreaRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/scanner': typeof ScannerRoute
   '/find/': typeof FindIndexRoute
   '/find/$city/$area': typeof FindCityAreaRoute
   '/find/$city/': typeof FindCityIndexRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/scanner': typeof ScannerRoute
   '/find': typeof FindIndexRoute
   '/find/$city/$area': typeof FindCityAreaRoute
   '/find/$city': typeof FindCityIndexRoute
@@ -59,22 +67,31 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/scanner': typeof ScannerRoute
   '/find/': typeof FindIndexRoute
   '/find/$city/$area': typeof FindCityAreaRoute
   '/find/$city/': typeof FindCityIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/find/' | '/find/$city/$area' | '/find/$city/'
+  fullPaths:
+    '/' | '/app' | '/scanner' | '/find/' | '/find/$city/$area' | '/find/$city/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/find' | '/find/$city/$area' | '/find/$city'
+  to: '/' | '/app' | '/scanner' | '/find' | '/find/$city/$area' | '/find/$city'
   id:
-    '__root__' | '/' | '/app' | '/find/' | '/find/$city/$area' | '/find/$city/'
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/scanner'
+    | '/find/'
+    | '/find/$city/$area'
+    | '/find/$city/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
+  ScannerRoute: typeof ScannerRoute
   FindIndexRoute: typeof FindIndexRoute
   FindCityAreaRoute: typeof FindCityAreaRoute
   FindCityIndexRoute: typeof FindCityIndexRoute
@@ -94,6 +111,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scanner': {
+      id: '/scanner'
+      path: '/scanner'
+      fullPath: '/scanner'
+      preLoaderRoute: typeof ScannerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/find/': {
@@ -123,6 +147,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
+  ScannerRoute: ScannerRoute,
   FindIndexRoute: FindIndexRoute,
   FindCityAreaRoute: FindCityAreaRoute,
   FindCityIndexRoute: FindCityIndexRoute,

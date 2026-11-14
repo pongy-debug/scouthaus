@@ -8,7 +8,7 @@ export function SiteNav() {
       <Link to="/" className="mr-2 text-xl font-extrabold tracking-tight">House<span className="text-primary">Hunt</span></Link>
       <nav className="flex flex-wrap gap-1">
         <Link to="/find" className={cls} activeProps={active}>Find House</Link>
-        <Link to="/app" className={cls} activeProps={active}>X-Ray Map & Contract Scanner</Link>
+        <Link to="/scanner" className={cls} activeProps={active}>Contract Scanner</Link>
       </nav>
     </header>
   );

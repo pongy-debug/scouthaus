@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Box, FileSearch, Map, Search } from "lucide-react";
+import { Box, FileSearch, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter, SiteNav } from "@/components/hh/SiteNav";
 
@@ -18,9 +18,8 @@ export const Route = createFileRoute("/")({
 });
 
 const FEATURES = [
-  { to: "/find" as const, icon: Box, title: "Find House", body: "Fly over Durham in 3D, pick an area and see every listed house colour-coded by availability." },
-  { to: "/app" as const, icon: Map, title: "X-Ray Neighborhood Map", body: "Thermal, damp, winter-bill and noise layers over a 3D model of the city." },
-  { to: "/app" as const, icon: FileSearch, title: "AI Contract Red-Flag Scanner", body: "Paste or drop your tenancy — illegal fees and unfair clauses flagged locally, with a ready email." },
+  { to: "/find" as const, icon: Box, title: "Find House", body: "Fly over Durham in 3D, click an area and X-ray every listed house: true monthly cost, EPC, HMO licensing and noise, with side-by-side compare." },
+  { to: "/scanner" as const, icon: FileSearch, title: "Contract Scanner", body: "Paste or drop your tenancy — illegal fees and unfair clauses flagged locally, with a ready email." },
 ];
 
 function Landing() {
@@ -36,7 +35,7 @@ function Landing() {
             <Button asChild size="lg" className="glow mt-8 font-semibold"><Link to="/find"><Search /> Find House</Link></Button>
           </div>
         </section>
-        <section className="grid gap-3 md:grid-cols-3">
+        <section className="grid gap-3 md:grid-cols-2">
           {FEATURES.map((f) => (
             <Link key={f.title} to={f.to} className="glass group p-5 transition hover:border-primary">
               <f.icon className="size-6 text-primary" />

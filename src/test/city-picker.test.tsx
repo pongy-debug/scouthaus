@@ -20,11 +20,9 @@ it.each([false, true])("opens Durham after the transition (reduced motion: %s)",
   fireEvent.click(screen.getByRole("button", { name: /Durham/ }));
   expect(screen.getByRole("status")).toHaveTextContent("Flying into Durham");
   expect(navigate).not.toHaveBeenCalled();
-  await act(async () => { await vi.advanceTimersByTimeAsync(reduced ? 0 : 1599); });
-  if (!reduced) {
-    expect(navigate).not.toHaveBeenCalled();
-    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
-  }
+  await act(async () => { await vi.advanceTimersByTimeAsync(2199); });
+  expect(navigate).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
   expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: "/find/$city", params: { city: "durham" } });
 });
 
@@ -34,6 +32,6 @@ it("cancels pending navigation when the picker is unmounted", async () => {
   const view = render(<CityPicker />);
   fireEvent.click(screen.getByRole("button", { name: /Durham/ }));
   view.unmount();
-  await vi.advanceTimersByTimeAsync(2000);
+  await vi.advanceTimersByTimeAsync(3000);
   expect(navigate).not.toHaveBeenCalled();
 });

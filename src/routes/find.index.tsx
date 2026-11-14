@@ -33,21 +33,17 @@ function FindCity() {
   const [q, setQ] = useState("");
   const [missing, setMissing] = useState<string | null>(null);
   const [entering, setEntering] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gl = useWebGL();
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReducedMotion(media.matches);
-    update(); media.addEventListener("change", update);
-    return () => { media.removeEventListener("change", update); if (timer.current) clearTimeout(timer.current); };
+    return () => { if (timer.current) clearTimeout(timer.current); };
   }, []);
   const go = (id: string) => {
     if (entering || timer.current) return;
     setEntering(true);
     timer.current = setTimeout(() => {
       void nav({ to: "/find/$city", params: { city: id } }).finally(() => { setEntering(false); timer.current = null; });
-    }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1600);
+    }, 2200);
   };
   const submit = () => { const c = findCity(q); if (c) go(c.id); else if (q.trim()) setMissing(q.trim()); };
   const sugg = suggestCities(q);
@@ -57,7 +53,7 @@ function FindCity() {
       <div className="px-1"><Crumbs items={[{ label: "Home", to: "/" }, { label: "Find House" }]} /></div>
       <main className={`city-picker relative isolate flex min-h-[75vh] flex-1 items-center justify-center overflow-hidden rounded-2xl px-4 py-16 ${entering ? "city-picker-entering" : ""}`} aria-busy={entering}>
         <div className="city-globe-stage pointer-events-none absolute inset-0 -z-20" aria-hidden="true">
-          {gl ? <GlobeBoundary><Suspense fallback={<div className="city-globe-fallback" />}><CityGlobe entering={entering} reducedMotion={reducedMotion} /></Suspense></GlobeBoundary> : <div className="city-globe-fallback" />}
+          {gl ? <GlobeBoundary><Suspense fallback={<div className="city-globe-fallback" />}><CityGlobe entering={entering} /></Suspense></GlobeBoundary> : <div className="city-globe-fallback" />}
         </div>
         <div className="city-globe-shade pointer-events-none absolute inset-0 -z-10" />
         <div className="city-picker-panel w-full max-w-lg rounded-2xl border border-white/15 bg-slate-950/65 p-6 shadow-2xl backdrop-blur-md sm:p-8">

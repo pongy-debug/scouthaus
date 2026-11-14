@@ -6,9 +6,9 @@ import { SiteFooter, SiteNav } from "@/components/hh/SiteNav";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "HouseHunt — See the true cost of a student house before you sign" },
+      { title: "Scouthaus — See the true cost of a student house before you sign" },
       { name: "description", content: "Explore Durham student houses in 3D, X-ray energy bills and damp risk, and scan tenancy contracts for illegal clauses." },
-      { property: "og:title", content: "HouseHunt — Student house hunting, X-rayed" },
+      { property: "og:title", content: "Scouthaus — Student house hunting, X-rayed" },
       { property: "og:description", content: "3D area explorer, EPC & damp X-ray and a contract red-flag scanner for Durham students." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -29,8 +29,7 @@ function Landing() {
       <main className="flex flex-1 flex-col gap-6">
         <section className="glass relative overflow-hidden px-6 py-16 text-center md:py-24">
           <div className="mx-auto max-w-2xl">
-            <div className="font-mono text-xs uppercase tracking-widest text-primary">Durham · DH1 · Student lets</div>
-            <h1 className="mt-3 text-4xl font-extrabold tracking-tight md:text-6xl">House<span className="text-primary">Hunt</span></h1>
+            <h1 className="text-4xl font-extrabold tracking-tight md:text-6xl">Scout<span className="text-primary">haus</span></h1>
             <p className="mt-4 text-lg text-muted-foreground">See the true cost and risks of a student house before you sign.</p>
             <Button asChild size="lg" className="glow mt-8 font-semibold"><Link to="/find"><Search /> Find House</Link></Button>
           </div>

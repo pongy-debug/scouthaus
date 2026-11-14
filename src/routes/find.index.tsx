@@ -8,9 +8,9 @@ import { findCity, suggestCities } from "@/lib/hh/find";
 export const Route = createFileRoute("/find/")({
   head: () => ({
     meta: [
-      { title: "Find House — Choose your city | HouseHunt" },
+      { title: "Find House — Choose your city | Scouthaus" },
       { name: "description", content: "Pick a city to explore student houses in 3D. Currently available in Durham." },
-      { property: "og:title", content: "Find a student house in 3D — HouseHunt" },
+      { property: "og:title", content: "Find a student house in 3D — Scouthaus" },
       { property: "og:description", content: "Search a city and fly into its student areas." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -33,10 +33,12 @@ function FindCity() {
       <main className="flex flex-1 items-center justify-center">
         <div className="glass w-full max-w-lg p-8">
           <h1 className="text-2xl font-bold">Which city are you looking in?</h1>
-          <form className="relative mt-5" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-            <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input autoFocus value={q} onChange={(e) => { setQ(e.target.value); setMissing(null); }} placeholder="Start typing a city, e.g. Durham"
-              className="w-full rounded-lg border border-input bg-background/60 py-3 pl-9 pr-3 text-sm outline-none focus:border-primary" />
+          <form className="mt-5" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input autoFocus value={q} onChange={(e) => { setQ(e.target.value); setMissing(null); }} placeholder="Start typing a city, e.g. Durham"
+                className="w-full rounded-lg border border-input bg-background/60 py-3 pl-9 pr-3 text-sm outline-none focus:border-primary" />
+            </div>
             {sugg.length > 0 && !missing && (
               <div className="mt-2 space-y-1">
                 {sugg.map((c) => (
@@ -49,7 +51,7 @@ function FindCity() {
           </form>
           {missing && (
             <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm">
-              <p><strong>{missing}</strong> is coming soon — HouseHunt is currently available in Durham.</p>
+              <p><strong>{missing}</strong> is coming soon — Scouthaus is currently available in Durham.</p>
               <Button className="mt-3" onClick={() => go("durham")}>Continue with Durham</Button>
             </div>
           )}

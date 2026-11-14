@@ -5,9 +5,9 @@ import { SiteFooter, SiteNav } from "@/components/hh/SiteNav";
 export const Route = createFileRoute("/scanner")({
   head: () => ({
     meta: [
-      { title: "Contract Scanner — HouseHunt" },
+      { title: "Contract Scanner — Scouthaus" },
       { name: "description", content: "Paste or drop your tenancy contract — illegal fees and unfair clauses are flagged locally, with a ready-to-send email." },
-      { property: "og:title", content: "HouseHunt — Contract Scanner" },
+      { property: "og:title", content: "Scouthaus — Contract Scanner" },
       { property: "og:description", content: "Spot illegal fees and unfair clauses in a tenancy contract before you sign." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

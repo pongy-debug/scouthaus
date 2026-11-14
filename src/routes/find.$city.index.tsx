@@ -26,9 +26,9 @@ export const Route = createFileRoute("/find/$city/")({
   head: ({ loaderData }) => {
     const name = CITIES.find((c) => c.id === loaderData?.cityId)?.name ?? "City";
     return { meta: [
-      { title: `${name} student houses in 3D | HouseHunt` },
+      { title: `${name} student houses in 3D | Scouthaus` },
       { name: "description", content: `Explore ${name} student areas in 3D — every listed house with rent, availability and an EPC, HMO and noise X-ray.` },
-      { property: "og:title", content: `${name} in 3D — HouseHunt` },
+      { property: "og:title", content: `${name} in 3D — Scouthaus` },
       { property: "og:description", content: `Click an area to fly in, then click a house for its X-ray.` },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

@@ -63,7 +63,7 @@ export interface StreetMapProps {
   onHover: (houseId: string | null) => void;
 }
 
-/** The single HouseHunt map: area circles on the overview, extruded OSM buildings and risk-coloured listings everywhere. */
+/** The single Scouthaus map: area circles on the overview, extruded OSM buildings and risk-coloured listings everywhere. */
 export default function StreetMap(props: StreetMapProps) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);

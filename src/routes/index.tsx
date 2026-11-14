@@ -1,6 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { useEffect, useState, type MouseEvent } from "react";
 import { FileSearch, House, Zap } from "lucide-react";
 import { SiteLogo } from "@/components/hh/SiteNav";
+import { resetSpaceFlight, startSpaceFlight, useSpacePhase } from "@/lib/hh/transition";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,8 +18,32 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
+  const nav = useNavigate();
+  const router = useRouter();
+  const phase = useSpacePhase();
+  const leaving = phase !== "idle";
+  // The page shrinks toward the centre of the screen, wherever it is scrolled to.
+  const [origin, setOrigin] = useState("50% 50vh");
+  useEffect(() => {
+    // Showing the home page (first visit or back button) always starts from the normal state.
+    resetSpaceFlight();
+    // Get the Find House page and its 3D Earth ready before the click, so the fly-out never waits on the network.
+    void router?.preloadRoute?.({ to: "/find" })?.catch(() => {});
+    void import("@/components/hh/CityGlobe").catch(() => {});
+    for (const src of ["/textures/earth-day.jpg", "/textures/earth-clouds.png"]) new Image().src = src;
+  }, [router]);
+  /** Find House: fly out to the Earth instead of switching pages. Modified clicks (new tab etc.) keep their normal behaviour. */
+  const flyToFind = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setOrigin(`50% ${window.scrollY + window.innerHeight / 2}px`);
+    startSpaceFlight({ reduced, navigate: () => nav({ to: "/find" }) });
+  };
+  const block = (e: MouseEvent<HTMLAnchorElement>) => { if (leaving) e.preventDefault(); };
+  const off = leaving ? { "aria-disabled": true, tabIndex: -1 } : {};
   return (
-    <div className="scout-home min-h-screen">
+    <div className={`scout-home min-h-screen ${phase === "shrink" || phase === "black" ? "home-leaving" : ""}`} style={leaving ? { transformOrigin: origin } : undefined}>
       <header className="absolute inset-x-3 top-3 z-20 flex flex-wrap items-center gap-2 border border-transparent px-4 py-2.5">
         <SiteLogo />
       </header>
@@ -32,16 +58,18 @@ function Landing() {
             })}
             {([[190, 250], [1205, 215], [1100, 655], [290, 710]] as const).map(([x, y], index) => <g key={index} className="home-star home-star-cross" style={{ animationDelay: `${-index * 2}s`, animationDuration: `${7 + index}s` }}><path d={`M${x} ${y - 7}Q${x} ${y} ${x + 7} ${y}Q${x} ${y} ${x} ${y + 7}Q${x} ${y} ${x - 7} ${y}Q${x} ${y} ${x} ${y - 7}Z`} /></g>)}
           </svg>
+          <div className="home-intro-content">
           <div className="home-eyebrow"><span className="size-1.5 rounded-full bg-[var(--home-blue)]" /> A clearer view of student living</div>
           <h1 id="home-heading" className="mt-6 text-[clamp(3.6rem,8vw,6rem)] font-extrabold leading-[0.98] tracking-[-0.075em]"><span className="text-[var(--home-ink)]">Scout</span><span className="text-[var(--home-blue)]">haus</span><span className="text-[var(--home-ink)]">.</span></h1>
           <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Your next home. The full picture.</h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[var(--home-muted)] sm:text-base">Look beyond the listing. Explore Durham, uncover hidden costs, and understand your contract before you sign.</p>
         <nav aria-label="Main navigation" className="mt-8 grid w-full max-w-[480px] grid-cols-2 items-center gap-3 sm:gap-4">
-          <Link to="/find" className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><House className="size-4 sm:size-5" />Find House</Link>
-          <Link to="/scanner" className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><FileSearch className="size-4 sm:size-5" />Contract Check</Link>
+          <Link to="/find" onClick={flyToFind} {...off} className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><House className="size-4 sm:size-5" />Find House</Link>
+          <Link to="/scanner" onClick={block} {...off} className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><FileSearch className="size-4 sm:size-5" />Contract Check</Link>
         </nav>
 
           <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--home-muted)]">Your next home, with fewer surprises.</p>
+          </div>
           <a href="#neighbourhood" className="home-scroll-hint rounded-full px-4 py-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">Scroll to explore <span aria-hidden="true">↓</span></a>
 
         </section>

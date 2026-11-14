@@ -199,6 +199,19 @@
 .home-scroll-hint { position: absolute; bottom: 42px; z-index: 1; display: flex; align-items: center; gap: 12px; color: var(--home-muted); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 @keyframes home-twinkle { 0%, 100% { opacity: 0.12; } 50% { opacity: 0.65; } }
 @media (prefers-reduced-motion: reduce) { .home-star { animation: none; opacity: 0.3; } }
+/* Find House transition: the whole home page shrinks away to nothing over pure black; a black root overlay then covers the route change. */
+.home-intro-content { display: flex; width: 100%; flex-direction: column; align-items: center; }
+.home-leaving { pointer-events: none; will-change: transform; animation: home-shrink 1200ms cubic-bezier(0.7, 0, 0.84, 0) forwards; }
+html.space-lock { overflow: hidden; }
+html.space-lock, html.space-lock body { background: #000; }
+@keyframes home-shrink { to { transform: scale(0); } }
+.space-fx { position: fixed; inset: 0; z-index: 100; background: #000; }
+.space-fadein { pointer-events: none; animation: space-out 2000ms ease forwards; }
+.space-fade { animation: space-in 150ms ease both; }
+.space-fadeout { pointer-events: none; animation: space-out 150ms ease forwards; }
+@keyframes space-in { from { opacity: 0; } }
+@keyframes space-out { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .home-leaving { animation: none; } }
 .home-explorer { display: flex; min-height: 100svh; align-items: center; background: linear-gradient(to bottom, var(--home-transition), transparent 220px), radial-gradient(ellipse at 80% 45%, oklch(0.36 0.09 235 / 0.45), transparent 65%), linear-gradient(to bottom, var(--home-transition), oklch(0.15 0.035 260)); }
 .home-explorer-inner { width: 100%; max-width: 1440px; margin: 0 auto; padding: clamp(24px, 3vw, 40px) clamp(20px, 5vw, 80px); }
 .home-neighbourhood-grid { min-height: 380px; }

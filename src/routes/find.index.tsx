@@ -33,10 +33,10 @@ function FindCity() {
   const [q, setQ] = useState("");
   const [missing, setMissing] = useState<string | null>(null);
   const [hi, setHi] = useState(0);
+  const gl = useWebGL();
   const [entering, setEntering] = useState(false);
   const [destination, setDestination] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const gl = useWebGL();
   useEffect(() => {
     return () => { if (timer.current) clearTimeout(timer.current); };
   }, []);

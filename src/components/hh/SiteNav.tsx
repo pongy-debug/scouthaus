@@ -12,7 +12,7 @@ export function SiteNav() {
       <SiteLogo />
       <nav className="flex flex-wrap gap-1">
         <Link to="/find" className={cls} activeProps={active}>Find House</Link>
-        <Link to="/scanner" className={cls} activeProps={active}>Contract Scanner</Link>
+        <Link to="/scanner" className={cls} activeProps={active}>Contract Check</Link>
       </nav>
     </header>
   );

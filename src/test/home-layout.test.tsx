@@ -18,7 +18,7 @@ describe("home layout", () => {
     render(<Home />);
     const nav = screen.getByRole("navigation", { name: "Main navigation" });
     const find = screen.getByRole("link", { name: "Find House" });
-    const scanner = screen.getByRole("link", { name: "Contract Scanner" });
+    const scanner = screen.getByRole("link", { name: "Contract Check" });
     expect(screen.getByRole("heading", { level: 1 }).closest("section")).toContainElement(nav);
     expect(nav).toContainElement(find);
     expect(nav).toContainElement(scanner);
@@ -33,3 +33,4 @@ describe("home layout", () => {
     expect(screen.getByRole("link", { name: /Scroll to explore/ })).toHaveAttribute("href", "#neighbourhood");
   });
 });
+

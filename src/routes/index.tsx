@@ -38,7 +38,7 @@ function Landing() {
           <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[var(--home-muted)] sm:text-base">Look beyond the listing. Explore Durham, uncover hidden costs, and understand your contract before you sign.</p>
         <nav aria-label="Main navigation" className="mt-8 grid w-full max-w-[480px] grid-cols-2 items-center gap-3 sm:gap-4">
           <Link to="/find" className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><House className="size-4 sm:size-5" />Find House</Link>
-          <Link to="/scanner" className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><FileSearch className="size-4 sm:size-5" />Contract Scanner</Link>
+          <Link to="/scanner" className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><FileSearch className="size-4 sm:size-5" />Contract Check</Link>
         </nav>
 
           <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--home-muted)]">Your next home, with fewer surprises.</p>
@@ -61,7 +61,7 @@ function Landing() {
                 { icon: House, title: "Know your surroundings", text: "Neighbourhoods, damp risk & noise", color: "text-orange-300", surface: "border-orange-300/30 from-orange-400/10" },
               ].map(({ icon: Icon, title, text, color, surface }) => <div key={title} className={`rounded-xl border bg-gradient-to-br to-slate-950/70 p-5 ${surface}`}><div className="flex items-center gap-3"><Icon className={`size-5 shrink-0 ${color}`} /><h4 className="text-base font-bold text-slate-100">{title}</h4></div><p className="mt-3 text-xs leading-relaxed text-slate-400">{text}</p></div>)}
               <section aria-labelledby="home-scanner-heading" className="rounded-xl border border-violet-300/30 bg-gradient-to-br from-violet-400/10 to-slate-950/70 p-5">
-                <div className="flex items-center gap-3"><FileSearch className="size-5 shrink-0 text-violet-300" /><h4 id="home-scanner-heading" className="text-base font-bold text-slate-100">Contract Scanner</h4></div>
+                <div className="flex items-center gap-3"><FileSearch className="size-5 shrink-0 text-violet-300" /><h4 id="home-scanner-heading" className="text-base font-bold text-slate-100">Contract Check</h4></div>
                 <p className="mt-3 text-sm font-semibold text-violet-100">Love the house? Check the contract.</p>
                 <p className="mt-2 text-xs leading-relaxed text-slate-400">Spot potential red flags, understand key terms, and prepare questions before you sign.</p>
                 <p className="mt-3 text-[10px] leading-relaxed text-violet-200/80">Upload contract → Review clauses → Draft landlord questions</p>

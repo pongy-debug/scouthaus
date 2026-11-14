@@ -1,11 +1,15 @@
 import { Link } from "@tanstack/react-router";
 
+export function SiteLogo() {
+  return <Link to="/" aria-label="Scouthaus home" className="mr-2 text-xl font-extrabold tracking-tight text-foreground">Scout<span className="text-primary">haus</span></Link>;
+}
+
 export function SiteNav() {
   const cls = "rounded-md px-2.5 py-1 text-xs text-muted-foreground transition hover:text-foreground";
   const active = { className: "rounded-md px-2.5 py-1 text-xs bg-primary/15 text-primary" };
   return (
     <header className="glass flex flex-wrap items-center gap-2 px-4 py-2.5">
-      <Link to="/" className="mr-2 text-xl font-extrabold tracking-tight">Scout<span className="text-primary">haus</span></Link>
+      <SiteLogo />
       <nav className="flex flex-wrap gap-1">
         <Link to="/find" className={cls} activeProps={active}>Find House</Link>
         <Link to="/scanner" className={cls} activeProps={active}>Contract Scanner</Link>

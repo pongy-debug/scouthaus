@@ -198,7 +198,7 @@ export default function StreetMap(props: StreetMapProps) {
           <div className="font-semibold">{h.name}</div><div className="text-muted-foreground">{h.landlord} — {h.address}</div>
           <div className="mt-1 flex justify-between gap-3"><span style={{ color: AVAIL_COLOR[h.availability] }}>● {AVAIL_LABEL[h.availability]}</span><span>£{h.rent} pppw · {h.bedrooms} bed</span></div>
           <div style={{ color: RISK_COLOR[riskOf(h, P.layer)] }}>{riskLabel(h, P.layer)}</div>
-          <div className="text-primary">Click for X-Ray →</div></> });
+          <div className="text-primary">Click for more info →</div></> });
       } else setTip(null);
     });
     map.on("click", (e) => {

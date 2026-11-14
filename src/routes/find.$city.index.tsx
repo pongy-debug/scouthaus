@@ -1,5 +1,5 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ChevronDown, ChevronUp, GitCompareArrows } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,18 @@ function FindMap() {
   const [listOpen, setListOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
   const [pinned, setPinned] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
+  const areaId = area?.id ?? null;
+  const previousAreaId = useRef(areaId);
+
+  // Breadcrumbs and browser Back also return to the overview without using the button.
+  useEffect(() => {
+    if (previousAreaId.current !== null && areaId === null) {
+      setSelectedId(null);
+      setHoverId(null);
+      setListOpen(true);
+    }
+    previousAreaId.current = areaId;
+  }, [areaId]);
 
   const houses = applyFilters(city.houses, filters);
   const selected = houses.find((h) => h.id === selectedId) ?? null;

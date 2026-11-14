@@ -4,7 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { PROPERTIES, type Layer } from "@/lib/hh/data";
 import { PropertyDrawer } from "@/components/hh/PropertyDrawer";
 import { ContractScanner } from "@/components/hh/ContractScanner";
-import { Link } from "@tanstack/react-router";
+import { SiteNav } from "@/components/hh/SiteNav";
 
 const DurhamScene = lazy(() => import("@/components/hh/DurhamScene"));
 
@@ -40,9 +40,8 @@ function Index() {
 
   return (
     <div className="flex min-h-screen flex-col gap-3 p-3 lg:h-screen">
+      <SiteNav />
       <header className="glass flex flex-wrap items-center gap-3 px-4 py-2.5">
-        <Link to="/" className="text-xl font-extrabold tracking-tight">House<span className="text-primary">Hunt</span></Link>
-        <Link to="/find" className="text-xs text-primary hover:underline">Find House →</Link>
         <label className="flex items-center gap-2 text-xs text-muted-foreground"><Switch checked={xray} onCheckedChange={setXray} /> 3D X-Ray Vision</label>
         <div className="relative ml-auto w-full max-w-md">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search postcode or street…" className="w-full rounded-lg border border-input bg-background/60 px-3 py-1.5 font-mono text-xs outline-none focus:border-primary" />

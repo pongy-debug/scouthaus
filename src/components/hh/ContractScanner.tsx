@@ -127,6 +127,7 @@ export function ContractScanner() {
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div className="rounded-lg border border-border bg-background/40 p-3">
             <div className={`font-mono text-xl font-bold ${risk}`}>Risk Score: {result.score}/100</div>
+            {result.scoreReason && <p className="mt-1 text-sm text-muted-foreground">{result.scoreReason}</p>}
             {source && <div className="font-mono text-[11px] text-primary">{source.by === "gemini" ? "Analysed by Gemini" : `Analysed locally with built-in rules${source.why ? ` — ${source.why}` : ""}`}</div>}
             <div className="font-mono text-xs text-muted-foreground">{result.unenforceable} Unenforceable Clauses • £{result.illegalFees} in Illegal Fees Detected • {result.flags.length} flags in {result.clauses} clauses</div>
           </div>

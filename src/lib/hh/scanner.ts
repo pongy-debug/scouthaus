@@ -1,6 +1,6 @@
 export type Severity = "red" | "amber";
 export interface Flag { id: string; clause: string; label: string; severity: Severity; text: string; statute: string; explain: string; fee: number; ask: string }
-export interface ScanResult { clauses: number; flags: Flag[]; score: number; illegalFees: number; unenforceable: number }
+export interface ScanResult { clauses: number; flags: Flag[]; score: number; scoreReason?: string; illegalFees: number; unenforceable: number }
 
 interface Rule { id: string; label: string; severity: Severity; test: RegExp; statute: string; explain: string; ask: string; fee?: boolean; unenforceable?: boolean }
 

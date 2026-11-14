@@ -17,6 +17,7 @@ it.each([false, true])("opens Durham after the transition (reduced motion: %s)",
   vi.useFakeTimers();
   vi.stubGlobal("matchMedia", () => ({ matches: reduced, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   render(<CityPicker />);
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "du" } });
   fireEvent.click(screen.getByRole("button", { name: /Durham/ }));
   expect(screen.getByRole("status")).toHaveTextContent("Flying into Durham");
   expect(navigate).not.toHaveBeenCalled();
@@ -30,6 +31,7 @@ it("cancels pending navigation when the picker is unmounted", async () => {
   vi.useFakeTimers();
   vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   const view = render(<CityPicker />);
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "du" } });
   fireEvent.click(screen.getByRole("button", { name: /Durham/ }));
   view.unmount();
   await vi.advanceTimersByTimeAsync(3000);
@@ -39,9 +41,23 @@ it("cancels pending navigation when the picker is unmounted", async () => {
 it("accepts Newcastle upon Tyne and flies into Newcastle", async () => {
   vi.useFakeTimers();
   render(<CityPicker />);
-  fireEvent.change(screen.getByRole("textbox", { name: "Search for a city" }), { target: { value: "Newcastle upon Tyne" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "Search for a city" }), { target: { value: "Newcastle upon Tyne" } });
   fireEvent.click(screen.getByRole("button", { name: /Newcastle/ }));
   expect(screen.getByRole("status")).toHaveTextContent("Flying into Newcastle");
   await act(async () => { await vi.advanceTimersByTimeAsync(2200); });
   expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: "/find/$city", params: { city: "newcastle" } });
+});
+
+it("shows the city suggestion only while the typed text matches, and Enter picks it", () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  render(<CityPicker />);
+  const input = screen.getByRole("combobox");
+  expect(screen.queryByRole("button", { name: /Durham/ })).toBeNull();
+  fireEvent.change(input, { target: { value: "x" } });
+  expect(screen.queryByRole("button", { name: /Durham/ })).toBeNull();
+  fireEvent.change(input, { target: { value: "D" } });
+  expect(screen.getByRole("button", { name: /Durham/ })).toHaveTextContent(/\d+ areas · \d+ houses/);
+  fireEvent.submit(input.closest("form")!);
+  expect(screen.getByRole("status")).toHaveTextContent("Flying into Durham");
 });

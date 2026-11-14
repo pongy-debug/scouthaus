@@ -50,7 +50,7 @@ function Landing() {
           <div className="home-explorer-inner">
           <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
             <div><p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">A new perspective on your neighbourhood</p></div>
-            <span className="rounded-full border border-sky-300/25 bg-sky-400/10 px-3 py-1.5 font-mono text-[10px] text-sky-200">Illustrative preview · demo listings</span>
+            <span className="rounded-full border border-sky-300/25 bg-sky-400/10 px-3 py-1.5 font-mono text-[10px] text-sky-200">Illustrative preview · real adverts, modelled risk</span>
           </div>
           <div className="home-neighbourhood-grid relative grid items-center gap-6 md:grid-cols-[0.8fr_1.2fr]">
             <div className="relative z-10 order-2 max-w-sm space-y-3 pb-4 md:order-1">
@@ -154,7 +154,7 @@ function Landing() {
           </div>
         </section>
       </main>
-      <footer className="home-footer flex flex-wrap justify-between gap-3 border-t border-white/10 px-5 py-6 text-[10px] leading-relaxed text-slate-400 sm:px-8"><span>Scouthaus · A little more clarity before you get the keys.</span><span>Fictional demo listings · Educational guidance, not legal advice.</span></footer>
+      <footer className="home-footer flex flex-wrap justify-between gap-3 border-t border-white/10 px-5 py-6 text-[10px] leading-relaxed text-slate-400 sm:px-8"><span>Scouthaus · A little more clarity before you get the keys.</span><span>Listings from letting agents’ adverts · Risk figures are modelled · Educational guidance, not legal advice.</span></footer>
     </div>
   );
 }

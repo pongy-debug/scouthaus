@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { CalendarCheck, ExternalLink, GitCompareArrows, Star, X } from "lucide-react";
 import { HouseGallery } from "@/components/hh/HousePhoto";
 import { Button } from "@/components/ui/button";
-import { AVAIL_LABEL, advertUrl, cityForHouse, estimatedWalkMinutes, hasTelemetry, needsHmoLicence, trueMonthlyCost, type House } from "@/lib/hh/find";
+import { AVAIL_LABEL, advertUrl, bedsOf, cityForHouse, estimatedWalkMinutes, hasTelemetry, needsHmoLicence, trueMonthlyCost, type House } from "@/lib/hh/find";
 import { NationalPropertyData } from "./NationalPropertyData";
 
 const EPCS = ["A", "B", "C", "D", "E", "F", "G"] as const;
@@ -26,8 +26,9 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
           <div className="text-xs uppercase tracking-widest text-muted-foreground">Property X-Ray</div>
           <h2 className="text-lg font-bold leading-tight">{house.name}</h2>
           <div className="font-mono text-xs text-muted-foreground">{p.address} <span className="text-primary">{p.postcode}</span></div>
-          <div className="mt-1 font-mono text-xs text-muted-foreground">{house.landlord} · {house.bedrooms} bed · £{house.rent} pppw · {AVAIL_LABEL[house.availability]}</div>
+          <div className="mt-1 font-mono text-xs text-muted-foreground">{house.landlord} · {bedsOf(house)} · £{house.rent} pppw · {house.availabilityNote ?? AVAIL_LABEL[house.availability]}</div>
           {house.availableFrom && <p className="mt-1 text-xs text-primary">Available from {new Date(`${house.availableFrom}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p>}
+          {house.approximate && !house.approximateLocation && <p className="mt-1 text-xs text-muted-foreground">Approximate location</p>}
           {house.approximateLocation && <p className="mt-1 text-xs text-muted-foreground">Approximate location · pin placed at the postcode centre, not a verified building</p>}
         </div>
         {onClose && <Button size="icon" variant="ghost" aria-label="Close X-Ray" onClick={onClose}><X /></Button>}

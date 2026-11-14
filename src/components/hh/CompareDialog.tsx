@@ -13,7 +13,7 @@ export function CompareDialog({ open, onOpenChange, houses, areas, onRemove }: {
     ["Availability", (h) => AVAIL_LABEL[h.availability]],
     ["Rent", (h) => `£${h.rent} pppw`],
     ["True monthly cost", (h) => `£${trueMonthlyCost(h).total}/mo pp`],
-    ["Bedrooms", (h) => h.bedrooms],
+    ["Bedrooms", (h) => h.bedroomsNote ?? h.bedrooms],
     ["EPC", (h) => `${h.xray.epc} (${h.xray.epcScore}/100)`],
     ["Winter heating bill", (h) => `£${h.xray.bill}/mo`],
     ["HMO licence", (h) => (needsHmoLicence(h) ? "Mandatory licence needed" : "No mandatory licence")],

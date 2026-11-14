@@ -7,6 +7,7 @@ import { toResult, type Flag, type ScanResult } from "./scanner";
 
 const MAX_FILE_B64 = 14_000_000; // ≈10 MB file; Gemini inline requests are capped at 20 MB
 const DEFAULT_MODEL = "gemini-3.8-flash"; // override with the GEMINI_MODEL secret
+const FALLBACK_MODEL = "gemini-3.5-flash";
 
 const Input = z.object({
   text: z.string().max(400_000).optional(),
@@ -73,7 +74,8 @@ export const analyseContract = createServerFn({ method: "POST" })
     if (data.file) parts.push({ inline_data: { mime_type: data.file.mime, data: data.file.data } });
     if (data.text?.trim()) parts.push({ text: `CONTRACT TEXT:\n${data.text}` });
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      // A busy model (429/5xx) falls back once to a second model before the local reader takes over.
+      const call = (m: string) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-goog-api-key": key },
         signal: AbortSignal.timeout(90_000),
@@ -83,6 +85,11 @@ export const analyseContract = createServerFn({ method: "POST" })
           generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA },
         }),
       });
+      let res = await call(model);
+      if ((res.status === 429 || res.status >= 500) && model !== FALLBACK_MODEL) {
+        console.warn(`Gemini ${model} busy (${res.status}), trying ${FALLBACK_MODEL}`);
+        res = await call(FALLBACK_MODEL);
+      }
       if (!res.ok) {
         console.error(`Gemini ${model} responded ${res.status}: ${(await res.text()).slice(0, 500)}`);
         return { ok: false, reason: "failed", message: `Gemini returned ${res.status}` };

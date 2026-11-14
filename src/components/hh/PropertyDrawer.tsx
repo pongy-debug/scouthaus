@@ -71,8 +71,8 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
       </Stat>
       </>}
       <Stat title="HMO licence">
-        <div className={`font-mono text-sm font-semibold ${hmo ? "text-warning" : "text-primary"}`}>{city.id === "newcastle" ? "Not checked yet" : hmo ? "Mandatory licence needed" : "No mandatory licence"}</div>
-        {city.id === "newcastle" && <p className="mt-1 text-xs text-muted-foreground">Awaiting Newcastle City Council's HMO register. No Durham register data is used for this property.</p>}
+        <div className={`font-mono text-sm font-semibold ${hmo ? "text-warning" : "text-primary"}`}>{hmo ? "Mandatory licence needed" : "No mandatory licence"}</div>
+        {city.id === "newcastle" && <p className="mt-1 text-xs text-muted-foreground">Whether this house holds its licence has not been checked against Newcastle City Council's HMO register.</p>}
         <p className="mt-1 text-xs text-muted-foreground">{hmo
           ? `${house.bedrooms} bedrooms: a house shared by 5+ people from 2+ households must hold an HMO licence. Licence status is not in the local dataset — ask the landlord for the licence number and check the council's public HMO register.`
           : `${house.bedrooms} bedrooms: below the 5-person threshold for mandatory HMO licensing. Councils can still require additional licensing, so ask the landlord.`}</p>

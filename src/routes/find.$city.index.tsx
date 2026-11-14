@@ -15,7 +15,7 @@ import { AskMap } from "@/components/hh/AskMap";
 import { BedRange } from "@/components/hh/BedRange";
 import type { MapAction } from "@/lib/hh/assistant";
 import { overviewPos } from "@/components/hh/overviewPos";
-import { AVAIL_LABEL, CITIES, RISK_LAYERS, applyFilters, bedRange, defaultFilters, findCity, project, rentRange, type Availability, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { AVAIL_LABEL, CITIES, RISK_LAYERS, applyFilters, bedRange, defaultFilters, findCity, legendFor, project, rentRange, type Availability, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
 
 const StreetMap = lazy(() => import("@/components/hh/StreetMap"));
 
@@ -79,7 +79,7 @@ function CityMap({ cityId }: { cityId: string }) {
   const listed = groups.reduce((n, g) => n + g.houses.length, 0);
   const rents = rentRange(city);
   const beds = bedRange(city);
-  const legend = { ...RISK_LAYERS.find((l) => l.id === layer)!.legend, ...(city.houses.some((h) => h.telemetryStatus === "unchecked") ? { unknown: "Not checked yet" } : {}) };
+  const legend = legendFor(city, layer);
   // The list and the X-Ray share one slot, so an open drawer always collapses the list.
   const showList = listOpen && !selected;
 

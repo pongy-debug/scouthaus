@@ -7,7 +7,7 @@
 // and score in a reply is a fact from the dataset, not something the model wrote.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { AVAIL_LABEL, CITIES, applyFilters, bedRange, bedsLabel, bedsOf, defaultFilters, hasTelemetry, rentRange, trueMonthlyCost, type City, type Filters, type House, type RiskLayer } from "./find";
+import { AVAIL_LABEL, CITIES, applyFilters, bedRange, bedsLabel, bedsOf, defaultFilters, hasTelemetry, rentRange, riskLabel, trueMonthlyCost, type City, type Filters, type House, type RiskLayer } from "./find";
 
 // Chat needs to feel instant, so the fast model goes first and the slower one is only a backup.
 const CHAT_MODELS: [string, number][] = [["gemini-3.5-flash-lite", 15_000], ["gemini-3.6-flash", 45_000]];
@@ -109,7 +109,7 @@ export function resolveTurn(city: City, out: z.infer<typeof Output>, current: Cu
     const x = named.xray;
     lines.push(hasTelemetry(named)
       ? `${named.name} — ${areaName(city, named.area)}: £${named.rent} pppw, ${bedsOf(named)}, ${AVAIL_LABEL[named.availability]}, EPC ${x.epc}, heating £${x.bill}/mo, noise ${x.noise}/100, damp ${x.damp}/100, true cost £${trueMonthlyCost(named).total}/mo per person.`
-      : `${facts(city, named, "none")}. EPC, heating, noise, damp and HMO licence status have not been verified. View the original advert for current availability.`);
+      : `${facts(city, named, "none")}. ${riskLabel(named, "epc")}; ${riskLabel(named, "crime").toLowerCase()}; ${riskLabel(named, "hmo").toLowerCase()}. Heating cost, noise and damp have not been measured. View the original advert for current availability.`);
     if (!applyFilters([named], filters).length) { filters = defaultFilters(city); action.filters = filters; lines.push("It is outside your filters, so I cleared them to show it."); }
     action.houseId = named.id;
     return { reply: lines.filter(Boolean).join("\n"), action };

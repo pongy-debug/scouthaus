@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AVAIL_LABEL, hasTelemetry, needsHmoLicence, trueMonthlyCost, type Area, type House } from "@/lib/hh/find";
+import { AVAIL_LABEL, hasTelemetry, needsHmoLicence, riskLabel, trueMonthlyCost, type Area, type House } from "@/lib/hh/find";
 
 export const MAX_COMPARE = 3;
 
@@ -47,7 +47,7 @@ export function CompareDialog({ open, onOpenChange, houses, areas, onRemove }: {
                 {rows.map(([label, cell]) => (
                   <tr key={label} className="border-b border-border/60">
                     <td className="py-2 pr-3 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</td>
-                    {houses.map((h) => <td key={h.id} className="py-2 pr-3 font-mono text-xs">{!hasTelemetry(h) && ["True monthly cost", "EPC", "Winter heating bill", "HMO licence", "Noise", "Damp risk", "Rent vs area median"].includes(label) ? "Not checked yet" : cell(h)}</td>)}
+                    {houses.map((h) => <td key={h.id} className="py-2 pr-3 font-mono text-xs">{hasTelemetry(h) ? cell(h) : label === "EPC" ? riskLabel(h, "epc") : label === "Noise" ? riskLabel(h, "crime") : ["True monthly cost", "Winter heating bill", "Damp risk", "Rent vs area median"].includes(label) ? "Not checked yet" : cell(h)}</td>)}
                   </tr>
                 ))}
               </tbody>

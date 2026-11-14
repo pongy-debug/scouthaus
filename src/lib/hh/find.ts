@@ -28,9 +28,24 @@ export interface House {
   approximateLocation?: boolean;
   /** Real adverts must never inherit the seeded Durham demo measurements. */
   telemetryStatus?: "unchecked";
+  /** What has been verified by hand from public registers for a listing with no modelled X-ray. */
+  checked?: Checked;
+}
+export interface Checked {
+  /**
+   * Bands on the national EPC register: one band when the advert's full address matches a certificate, or every band
+   * found at the postcode when the advert gives no house number (usable only if they all fall in one risk group).
+   */
+  epc?: { bands: Epc[]; source: string };
+  /** police.uk street-level crime reports within 1 mile of the pin during `month`. */
+  crime?: { count: number; month: string };
 }
 export interface Destination { name: string; lat: number; lng: number }
-export interface City { id: string; name: string; aliases?: string[]; center: { lat: number; lng: number }; overviewZoom?: number; areas: Area[]; houses: House[]; walkDestinations?: Destination[] }
+export interface City {
+  id: string; name: string; aliases?: string[]; center: { lat: number; lng: number }; overviewZoom?: number; areas: Area[]; houses: House[]; walkDestinations?: Destination[];
+  /** police.uk reports within 1 mile of the city centre in the same month as the listings' counts; crime colours are relative to this. */
+  crimeBaseline?: { name: string; count: number; month: string };
+}
 
 const DURHAM_AREAS: Area[] = [
   { id: "claypath", name: "Claypath", postcode: "DH1", lat: 54.7792, lng: -1.5712, active: true },
@@ -161,6 +176,18 @@ const NEWCASTLE_AREAS: Area[] = [
 
 // Hand-entered from the five adverts supplied by the owner; no listing scraping.
 // Coordinates are Postcodes.io postcode centres (looked up 2026-11-14), not verified building footprints.
+// `checked` was looked up by hand on 2026-11-14 and is the only X-ray data these adverts have:
+//  - crime: data.police.uk street-level reports within 1 mile of the pin, September 2026 (latest month published).
+//  - epc: find-energy-certificate.service.gov.uk by postcode. Lavender Gardens (bands B–E), Bayswater Road (C–E) and
+//    Tavistock Road (C–E) give no house number and their streets span several bands, so their EPC stays unchecked.
+const NEWCASTLE_CRIME_MONTH = "2026-09";
+const NEWCASTLE_CHECKS: Record<string, Checked> = {
+  "newcastle-lavender": { crime: { count: 347, month: NEWCASTLE_CRIME_MONTH } },
+  "newcastle-bayswater": { crime: { count: 328, month: NEWCASTLE_CRIME_MONTH } },
+  "newcastle-tavistock": { crime: { count: 330, month: NEWCASTLE_CRIME_MONTH } },
+  "newcastle-hartford": { crime: { count: 543, month: NEWCASTLE_CRIME_MONTH }, epc: { bands: ["B", "C"], source: "All 17 certificates at NE6 5BG are band B or C; the advert gives no house number." } },
+  "newcastle-lillico": { crime: { count: 1104, month: NEWCASTLE_CRIME_MONTH }, epc: { bands: ["E"], source: "Certificate for 1 Lillico House, Sandyford Road, valid until 13 March 2028." } },
+};
 const NEWCASTLE_HOUSES: House[] = [
   { id: "newcastle-lavender", name: "Lavender Gardens", address: "Lavender Gardens", area: "jesmond", postcode: "NE2 3DE", lat: 54.991984, lng: -1.610662, rent: 166, bedrooms: 5, landlord: "Seekers", availableFrom: "2027-07-09", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/lavender-gardens/218809?contract=288227", photos: ["https://public.sturents.com/photos/8326030.jpg", "https://public.sturents.com/photos/8314329.jpg"] },
   { id: "newcastle-bayswater", name: "Bayswater Road", address: "Bayswater Road", area: "jesmond", postcode: "NE2 3HP", lat: 54.994722, lng: -1.60962, rent: 166, bedrooms: 5, landlord: "Seekers", availableFrom: "2027-07-01", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/bayswater-road/218842?contract=288647", photos: ["https://public.sturents.com/photos/8371038.jpg", "https://public.sturents.com/photos/6438236.jpg"] },
@@ -169,7 +196,7 @@ const NEWCASTLE_HOUSES: House[] = [
   { id: "newcastle-lillico", name: "1 Lillico House", address: "1 Lillico House, Sandyford Road", area: "sandyford", postcode: "NE2 1BN", lat: 54.982211, lng: -1.600881, rent: 161, bedrooms: 5, landlord: "Loc8me (Newcastle)", availableFrom: "2027-07-01", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/sandyford-road/426290?contract=615266", photos: ["https://public.sturents.com/photos/9929985.jpg", "https://public.sturents.com/photos/9929953.jpg"] },
 ].map((listing): House => ({
   ...listing, cityId: "newcastle", availability: "available", approximateLocation: true,
-  photoCredit: `${listing.landlord} via StuRents`, telemetryStatus: "unchecked",
+  photoCredit: `${listing.landlord} via StuRents`, telemetryStatus: "unchecked", ...(NEWCASTLE_CHECKS[listing.id] ? { checked: NEWCASTLE_CHECKS[listing.id]! } : {}),
   // Unchecked numeric fields are internal placeholders, never displayed, ranked or classified as measurements.
   xray: { id: listing.id, address: listing.address, postcode: listing.postcode, area: NEWCASTLE_AREAS.find((a) => a.id === listing.area)!.name,
     tag: "Agent listing", epc: "G", epcScore: 0, bill: 0, billFactors: [], damp: 0, dampNote: "Not checked yet", noise: 0, rent: listing.rent, median: 0 },
@@ -179,7 +206,8 @@ export const CITIES: City[] = [
   { id: "durham", name: "Durham", center: { lat: 54.7765, lng: -1.5745 }, areas: DURHAM_AREAS, houses: DURHAM_HOUSES,
     walkDestinations: [{ name: "Durham University Science Site", lat: 54.7645, lng: -1.578 }, { name: "Bill Bryson Library", lat: 54.7647, lng: -1.5788 }] },
   { id: "newcastle", name: "Newcastle", aliases: ["Newcastle upon Tyne"], center: { lat: 54.9783, lng: -1.6178 }, overviewZoom: 12.4, areas: NEWCASTLE_AREAS, houses: NEWCASTLE_HOUSES,
-    walkDestinations: [{ name: "Newcastle University (King's Gate)", lat: 54.9803, lng: -1.6149 }, { name: "Northumbria University (City Campus)", lat: 54.9776, lng: -1.6073 }] },
+    walkDestinations: [{ name: "Newcastle University (King's Gate)", lat: 54.9803, lng: -1.6149 }, { name: "Northumbria University (City Campus)", lat: 54.9776, lng: -1.6073 }],
+    crimeBaseline: { name: "Newcastle city centre", count: 1123, month: NEWCASTLE_CRIME_MONTH } },
 ];
 
 export const hasTelemetry = (house: House) => house.telemetryStatus !== "unchecked";
@@ -241,8 +269,34 @@ export const bedsOf = (hs: House) => hs.bedroomsNote ?? `${hs.bedrooms} bed`;
 /** Mandatory HMO licensing in England applies to 5+ occupants in 2+ households. */
 export const needsHmoLicence = (hs: House) => hs.bedrooms >= 5;
 
+const epcGroup = (e: Epc): Risk => (e <= "C" ? "low" : e === "D" ? "med" : "high");
+/** Worst EPC band known for a listing (modelled X-ray, or the national register), or null when unchecked. */
+export function epcWorst(hs: House): Epc | null {
+  if (hasTelemetry(hs)) return hs.xray.epc;
+  return hs.checked?.epc?.bands.reduce<Epc | null>((w, b) => (!w || b > w ? b : w), null) ?? null;
+}
+/**
+ * Risk for a real advert with no modelled X-ray: each layer is coloured only from what was actually verified, and is
+ * "unknown" otherwise. Crime is relative to the city centre: under a third of its reports is low, over two thirds high.
+ */
+function checkedRisk(hs: House, layer: RiskLayer): Risk {
+  if (layer === "hmo") return needsHmoLicence(hs) ? "med" : "low";
+  if (layer === "epc") {
+    const groups = new Set((hs.checked?.epc?.bands ?? []).map(epcGroup));
+    return groups.size === 1 ? [...groups][0]! : "unknown";
+  }
+  if (layer === "crime") {
+    const c = hs.checked?.crime, base = cityForHouse(hs).crimeBaseline;
+    if (!c || !base || c.month !== base.month) return "unknown";
+    const share = c.count / base.count;
+    return share > 2 / 3 ? "high" : share > 1 / 3 ? "med" : "low";
+  }
+  const known = [checkedRisk(hs, "epc"), checkedRisk(hs, "crime")].filter((r) => r !== "unknown");
+  return known.includes("high") ? "high" : known.includes("med") ? "med" : known.length ? "low" : "unknown";
+}
+
 export function riskOf(hs: House, layer: RiskLayer): Risk {
-  if (!hasTelemetry(hs)) return "unknown";
+  if (!hasTelemetry(hs)) return checkedRisk(hs, layer);
   const x = hs.xray;
   if (layer === "epc") return x.epcScore >= 69 ? "low" : x.epcScore >= 55 ? "med" : "high";
   if (layer === "hmo") return needsHmoLicence(hs) ? "med" : "low";
@@ -252,12 +306,30 @@ export function riskOf(hs: House, layer: RiskLayer): Risk {
 }
 
 export function riskLabel(hs: House, layer: RiskLayer): string {
-  if (!hasTelemetry(hs)) return layer === "hmo" ? "HMO licence: Not checked yet" : "Not checked yet";
+  if (!hasTelemetry(hs)) {
+    const bands = hs.checked?.epc?.bands ?? [], crime = hs.checked?.crime;
+    const epc = checkedRisk(hs, "epc") === "unknown" ? "EPC not checked yet" : bands.length === 1 ? `EPC ${bands[0]} (national register)` : `EPC ${bands[0]}–${bands[bands.length - 1]} at this postcode`;
+    if (layer === "epc") return epc;
+    if (layer === "hmo") return needsHmoLicence(hs) ? "HMO licence needed" : "No mandatory HMO licence";
+    if (layer === "crime") return crime ? `${crime.count} crime reports within 1 mile` : "Crime not checked yet";
+    const all = riskOf(hs, "all");
+    if (all === "unknown") return "Not checked yet";
+    const missing = [checkedRisk(hs, "epc") === "unknown" ? "EPC" : "", checkedRisk(hs, "crime") === "unknown" ? "crime" : ""].filter(Boolean).join(" and ");
+    return `${{ low: "Lower risk", med: "Some risk", high: "Higher risk" }[all]}${missing ? ` · ${missing} not checked` : ""}`;
+  }
   const x = hs.xray;
   if (layer === "epc") return `EPC ${x.epc} · £${x.bill}/mo heating`;
   if (layer === "hmo") return needsHmoLicence(hs) ? "HMO licence needed" : "No mandatory HMO licence";
   if (layer === "crime") return `Noise ${x.noise}/100`;
   return { low: "Lower risk", med: "Some risk", high: "Higher risk", unknown: "Not checked yet" }[riskOf(hs, "all")];
+}
+
+/** Legend for a layer in a city; "Not checked yet" appears only while some listing is still unchecked on that layer. */
+export function legendFor(city: City, layer: RiskLayer): Partial<Record<Risk, string>> {
+  const base = RISK_LAYERS.find((l) => l.id === layer)!.legend;
+  const legend = layer === "crime" && city.crimeBaseline
+    ? { low: "Under ⅓ of city-centre crime", med: "⅓–⅔ of city-centre crime", high: "Over ⅔ of city-centre crime" } : base;
+  return city.houses.some((h) => riskOf(h, layer) === "unknown") ? { ...legend, unknown: "Not checked yet" } : legend;
 }
 
 /** Per person, in winter: rent (pppw × 52 ÷ 12) plus an equal share of the predicted heating bill. */
@@ -278,7 +350,7 @@ export function bedsLabel(f: Pick<Filters, "minBeds" | "maxBeds">, range: { min:
   return f.minBeds === f.maxBeds ? `${f.minBeds}` : `${f.minBeds}–${f.maxBeds}`;
 }
 export function applyFilters(hs: House[], f: Filters) {
-  return hs.filter((x) => x.rent <= f.maxRent && x.bedrooms >= f.minBeds && x.bedrooms <= f.maxBeds && (f.epc === "any" || (hasTelemetry(x) && x.xray.epc <= f.epc))
+  return hs.filter((x) => x.rent <= f.maxRent && x.bedrooms >= f.minBeds && x.bedrooms <= f.maxBeds && (f.epc === "any" || (epcWorst(x) ?? "Z") <= f.epc)
     && (f.availability === "all" || x.availability === f.availability));
 }
 

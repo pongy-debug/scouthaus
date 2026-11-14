@@ -2,12 +2,18 @@
 
 <center><i>A little more clarity before you get the keys</i></center>
 
+<br />
+
 <center>
 <img height="23" alt="Built with Lovable" src="https://github.com/user-attachments/assets/bae169b5-c2d7-4f8b-b5c0-1c604552f0a1" /> &nbsp;
 <img height="23" alt="Gemini Integration" src="https://github.com/user-attachments/assets/63aaa3b1-80e4-467b-8747-62f1c73c5d1a" />
 </center>
 
+<br />
+
 <!-- Gif -->
+
+<br />
 
 Student Housing is very difficult, especially as small place in Durham, it's difficult to find an all-in-one hub to check all available options. So much hassle...
 

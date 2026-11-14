@@ -85,7 +85,7 @@ export function AskMap({ cityId, areas, houses, state, onAction }: { cityId: str
               className="min-w-0 flex-1 rounded-md border border-input bg-background/60 px-2 py-1.5 text-xs outline-none focus:border-primary" />
             <button type="submit" disabled={busy || !draft.trim()} aria-label="Send" className="rounded-md bg-primary p-1.5 text-primary-foreground disabled:opacity-40"><Send className="size-3.5" /></button>
           </form>
-          <p className="px-3 pb-2 text-[10px] text-muted-foreground">Messages go to Google Gemini. Answers use the demo listings only.</p>
+          <p className="px-3 pb-2 text-[10px] text-muted-foreground">Messages go to Google Gemini. Answers use the listed houses only.</p>
         </section>
       )}
       <button type="button" aria-expanded={open} aria-label={open ? "Hide map assistant" : "Ask the map"} onClick={() => setOpen((o) => !o)}

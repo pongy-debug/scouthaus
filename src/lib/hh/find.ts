@@ -1,4 +1,4 @@
-import { PROPERTIES, epcFromScore, type Property } from "./data";
+import { epcFromScore, type Epc, type Property } from "./data";
 import { IMAGE_SOURCE } from "./config";
 
 export type Availability = "available" | "under-offer" | "let";
@@ -9,6 +9,14 @@ export interface Area {
 export interface House {
   id: string; name: string; landlord: string; address: string; area: string; postcode: string;
   lat: number; lng: number; availability: Availability; rent: number; bedrooms: number;
+  /** Availability in the advert's own words, e.g. "Available 01/07/2027". */
+  availabilityNote?: string;
+  /** True when the advert gives no house number: the pin is on the right street but not on the exact building. */
+  approximate?: boolean;
+  /** Shown instead of "N bed" when the advert is inconsistent about the bedroom count. */
+  bedroomsNote?: string;
+  /** Photo credit text; defaults to the agent name. */
+  photoCredit?: string;
   /** EPC, heating, damp, noise and rent-benchmark telemetry shown in the X-Ray drawer. */
   xray: Property;
   /** The listing's real advert page, saved at import. Leave unset when there is none — never a made-up or generic URL. */
@@ -22,54 +30,119 @@ const DURHAM_AREAS: Area[] = [
   { id: "claypath", name: "Claypath", postcode: "DH1", lat: 54.7792, lng: -1.5712, active: true },
   { id: "viaduct", name: "Viaduct", postcode: "DH1", lat: 54.7778, lng: -1.5832, active: true },
   { id: "gilesgate", name: "Gilesgate", postcode: "DH1", lat: 54.7806, lng: -1.5598, active: true },
+  { id: "gilesgate-moor", name: "Gilesgate Moor", postcode: "DH1", lat: 54.7805, lng: -1.5490, active: true },
   { id: "elvet", name: "Elvet", postcode: "DH1", lat: 54.7712, lng: -1.5690, active: true },
   { id: "crossgate", name: "Crossgate", postcode: "DH1", lat: 54.7738, lng: -1.5818, active: true },
+  { id: "nevilles-cross", name: "Neville's Cross", postcode: "DH1", lat: 54.7730, lng: -1.5955, active: true },
+  { id: "langley-moor", name: "Langley Moor", postcode: "DH7", lat: 54.7560, lng: -1.6130, active: true, note: "≈3 km south-west" },
   { id: "framwellgate-moor", name: "Framwellgate Moor", postcode: "DH1", lat: 54.7955, lng: -1.5850, active: false },
   { id: "belmont", name: "Belmont", postcode: "DH1", lat: 54.7858, lng: -1.5390, active: false },
   { id: "chester-le-street", name: "Chester-le-Street", postcode: "DH2/DH3", lat: 54.8580, lng: -1.5740, active: false, note: "≈9 km north" },
 ];
 
-/** Surveyed profile when the listing has one; other demo listings get a modelled profile seeded from their id. */
-function telemetry(hs: { id: string; postcode: string; address: string; rent: number }, areaName: string, propertyId?: string): Property {
-  const base = propertyId ? PROPERTIES.find((p) => p.id === propertyId) : undefined;
-  if (base) return base;
+const EPC_MID: Record<Epc, number> = { A: 95, B: 85, C: 74, D: 61, E: 46, F: 30, G: 15 };
+/**
+ * X-Ray figures are NOT from the advert: heating bill, damp, noise and the rent benchmark are modelled from a seed of
+ * the listing id. Only the EPC band is real, and only where the advert states one (`epc`).
+ */
+function telemetry(hs: { id: string; postcode: string; address: string; rent: number }, areaName: string, epc?: Epc): Property {
   const seed = [...hs.id].reduce((s, c) => s + c.charCodeAt(0), 0);
-  const epcScore = 30 + (seed % 50);
+  const epcScore = epc ? EPC_MID[epc] : 30 + (seed % 50);
   const damp = 20 + ((seed * 7) % 65);
   return {
-    id: hs.id, postcode: hs.postcode, address: hs.address, area: areaName, tag: "Demo listing", epc: epcFromScore(epcScore), epcScore,
+    id: hs.id, postcode: hs.postcode, address: hs.address, area: areaName, tag: epc ? "EPC from advert · other figures modelled" : "Modelled estimate", epc: epc ?? epcFromScore(epcScore), epcScore,
     bill: Math.round(300 - epcScore * 2.4), billFactors: epcScore > 60 ? ["Cavity wall insulation", "Double glazing"] : ["Solid brick walls", "Older boiler"],
     damp, dampNote: damp >= 60 ? "Older terrace with cold wall surfaces — ventilate daily and check bedrooms for mould." : "Moderate-to-low condensation risk with normal ventilation.",
     noise: 30 + ((seed * 3) % 60), rent: hs.rent, median: Math.round(hs.rent * (0.88 + (seed % 20) / 100)),
   };
 }
 
-const h = (id: string, name: string, landlord: string, address: string, area: string, postcode: string, lat: number, lng: number, availability: Availability, rent: number, bedrooms: number, propertyId?: string): House =>
-  ({ id, name, landlord, address, area, postcode, lat, lng, availability, rent, bedrooms,
-    xray: telemetry({ id, postcode, address, rent }, DURHAM_AREAS.find((a) => a.id === area)!.name, propertyId) });
+const listing = (l: Omit<House, "xray">, epc?: Epc): House =>
+  ({ ...l, xray: telemetry(l, DURHAM_AREAS.find((a) => a.id === l.area)!.name, epc) });
 
-// Fictional demo listings placed on real Durham street coordinates.
+/** Urbis Property advert: https://www.urbis-property.com/property/<slug>/ — `photo` is the path under their wp-content/uploads. */
+const urbis = (slug: string, address: string, area: string, postcode: string, lat: number, lng: number, availability: Availability, availabilityNote: string, rent: number, bedrooms: number, photo: string): House =>
+  listing({ id: `urbis-${address.toLowerCase().replace(/ /g, "-")}`, name: address, landlord: "Urbis Property", address, area, postcode, lat, lng, availability, availabilityNote, rent, bedrooms,
+    sourceUrl: `https://www.urbis-property.com/property/${slug}/`, photos: [`https://www.urbis-property.com/wp-content/uploads/${photo}`] });
+
+/** Loc8me advert: https://loc8me.co.uk/lettings/<slug>/ — every imported advert was marked available; `epc` only where the advert states it. */
+const loc8me = (slug: string, name: string, address: string, area: string, postcode: string, lat: number, lng: number, availabilityNote: string, rent: number, bedrooms: number, photo: string, epc?: Epc): House =>
+  listing({ id: `loc8me-${slug}`, name, landlord: "Loc8me", address, area, postcode, lat, lng, availability: "available", availabilityNote, rent, bedrooms,
+    sourceUrl: `https://loc8me.co.uk/lettings/${slug}/`, photos: [`https://loc8me.co.uk/wp-content/uploads/${photo}`] }, epc);
+
+/**
+ * StuRents advert, entered by hand from details the owner supplied (nothing is fetched from StuRents): `path` is the part
+ * after https://sturents.com/student-accommodation/durham/house/, `photos` are file names under public.sturents.com/photos.
+ * No house number is published, so the pin sits on the street at the postcode (postcode centroid + OpenStreetMap street
+ * geometry) and is flagged approximate.
+ */
+const sturents = (path: string, street: string, postcode: string, landlord: string, lat: number, lng: number, availabilityNote: string, rent: number, bedrooms: number, photos: string[], bedroomsNote?: string): House =>
+  listing({ id: `sturents-${path.split("/")[1]!.split("?")[0]}`, name: street, landlord, address: street, area: "elvet", postcode, lat, lng, availability: "available", availabilityNote, rent, bedrooms, ...(bedroomsNote ? { bedroomsNote } : {}),
+    approximate: true, sourceUrl: `https://sturents.com/student-accommodation/durham/house/${path}`,
+    photos: photos.map((f) => `https://public.sturents.com/photos/${f}`), photoCredit: `${landlord} via StuRents` });
+
+// Real listings imported on 2026-11-14 from each advert page linked from https://www.urbis-property.com/ and
+// https://loc8me.co.uk/student-accommodation/durham/. Address, rent (pppw), bedrooms, availability, map position and
+// main photo are as advertised that day; Loc8me adverts mostly give the street without a house number. Listings that
+// share one advertised map point are spaced ~8 m apart so each pin can be clicked.
 const DURHAM_HOUSES: House[] = [
-  h("claypath-8", "Claypath Lofts", "Wear Valley Lettings", "8 Claypath", "claypath", "DH1 3LE", 54.7788, -1.5718, "available", 152, 4, "claypath"),
-  h("claypath-ruth", "First Ruth House", "Ruth Property Co.", "31 Providence Row", "claypath", "DH1 1RS", 54.7800, -1.5702, "under-offer", 148, 5),
-  h("claypath-mews", "Kepier Mews", "Bill Free Homes", "4 Kepier Terrace", "claypath", "DH1 1JW", 54.7808, -1.5728, "available", 139, 3),
-  h("claypath-tower", "Tower Court", "Durham Student Rooms", "12 Tenter Terrace", "claypath", "DH1 4RD", 54.7781, -1.5700, "let", 160, 6),
-  h("viaduct-42", "The Viaduct House", "Northern Key Estates", "42 The Viaduct", "viaduct", "DH1 4EN", 54.7776, -1.5838, "available", 142, 4, "viaduct"),
-  h("viaduct-hawthorn", "Hawthorn Terrace", "Bill Free Homes", "14 Hawthorn Terrace", "viaduct", "DH1 4EL", 54.7769, -1.5848, "available", 138, 5),
-  h("viaduct-mistletoe", "Mistletoe Street", "Castle Lettings", "22 Mistletoe Street", "viaduct", "DH1 4EP", 54.7783, -1.5826, "under-offer", 135, 4),
-  h("viaduct-lawson", "Lawson Terrace", "Ruth Property Co.", "9 Lawson Terrace", "viaduct", "DH1 4EW", 54.7790, -1.5843, "let", 132, 3),
-  h("gilesgate-14", "Gilesgate Terrace", "Peninsula Homes", "14 Gilesgate", "gilesgate", "DH1 1HP", 54.7801, -1.5640, "available", 168, 5, "gilesgate"),
-  h("gilesgate-sherburn", "Sherburn Road House", "Wear Valley Lettings", "61 Sherburn Road", "gilesgate", "DH1 2JR", 54.7790, -1.5570, "available", 125, 4),
-  h("gilesgate-vane", "Vane Tempest Hall", "Durham Student Rooms", "3 Vane Tempest", "gilesgate", "DH1 1QG", 54.7815, -1.5605, "let", 130, 6),
-  h("gilesgate-moor", "Moor House", "Castle Lettings", "18 Bradford Crescent", "gilesgate", "DH1 1HL", 54.7822, -1.5580, "under-offer", 128, 4),
-  h("elvet-bailey", "Saddler Street Rooms", "Peninsula Homes", "5 Saddler Street", "elvet", "DH1 3HP", 54.7745, -1.5745, "available", 185, 4, "bailey"),
-  h("elvet-hallgarth", "Hallgarth House", "Northern Key Estates", "7 Hallgarth Street", "elvet", "DH1 3AY", 54.7700, -1.5700, "available", 172, 5),
-  h("elvet-church", "Church Street Flats", "Bill Free Homes", "26 Church Street", "elvet", "DH1 3DQ", 54.7695, -1.5730, "under-offer", 165, 3),
-  h("elvet-old", "Old Elvet Townhouse", "Ruth Property Co.", "40 Old Elvet", "elvet", "DH1 3HN", 54.7735, -1.5680, "let", 190, 6),
-  h("crossgate-north", "North Road Flat", "Castle Lettings", "19 North Road", "crossgate", "DH1 4DG", 54.7765, -1.5800, "available", 155, 4, "northroad"),
-  h("crossgate-allergate", "Allergate House", "Wear Valley Lettings", "11 Allergate", "crossgate", "DH1 4ET", 54.7742, -1.5832, "available", 147, 5),
-  h("crossgate-peth", "Crossgate Peth", "Durham Student Rooms", "33 Crossgate Peth", "crossgate", "DH1 4PZ", 54.7728, -1.5850, "let", 140, 4),
-  h("crossgate-margery", "Margery Lane", "Northern Key Estates", "6 Margery Lane", "crossgate", "DH1 4QG", 54.7733, -1.5815, "under-offer", 150, 3),
+  loc8me("renny-street", "Renny Street", "Renny Street", "claypath", "DH1 1JN", 54.77946, -1.56579, "Available 01/07/2027", 195, 5, "2025/10/9075366.jpg"),
+  loc8me("mayorswell-close", "Mayorswell Close", "Mayorswell Close", "claypath", "DH1 1JU", 54.78021, -1.56736, "Available 01/07/2027", 198, 6, "2025/10/8593585.jpg", "D"),
+  loc8me("ravensworth-terrace-l", "Ravensworth Terrace (L)", "7b Ravensworth Terrace", "claypath", "DH1 1QP", 54.77783, -1.5692, "Available 01/07/2027", 203, 4, "2025/11/7926536.jpg"),
+  loc8me("wanless-terrace-l", "Wanless Terrace (L)", "Wanless Terrace", "claypath", "DH1 1RU", 54.7798, -1.57195, "Available 01/07/2027", 203, 4, "2025/10/7912994.jpg"),
+  loc8me("ferens-close-2", "Ferens Close", "Ferens Close", "claypath", "DH1 1JX", 54.78105, -1.5679, "Available 01/07/2027", 183, 6, "2025/09/7926595.jpg"),
+  urbis("1-finney-terrace-durham", "1 Finney Terrace", "claypath", "DH1 1RT", 54.77912, -1.57185, "under-offer", "Under Reservation for 2027-28", 184, 3, "2015/06/1-fin-244x163.jpg"),
+  urbis("40-claypath-durham", "40 Claypath", "claypath", "DH1 1QE", 54.77836, -1.57266, "available", "Available July 2027", 184, 8, "2015/06/house5pic1-244x163.jpg"),
+  urbis("39-claypath-durham", "39 Claypath", "claypath", "DH1 1QE", 54.77836, -1.57254, "under-offer", "Under Reservation for 2027-28", 210, 6, "2015/06/house6pic3-244x163.jpg"),
+  loc8me("highgate", "Highgate", "Highgate", "viaduct", "DH1 4GA", 54.7785, -1.58034, "Available 21/07/2027", 185, 5, "2025/10/8545157.jpg"),
+  urbis("49-albert-street-durham", "49 Albert Street", "viaduct", "DH1 4RJ", 54.78081, -1.5868, "under-offer", "Under Reservation for 2027-28", 210, 7, "2015/06/albert49-488x326.jpg"),
+  urbis("9-albert-street-durham", "9 Albert Street", "viaduct", "DH1", 54.78043, -1.58667, "under-offer", "Under Reservation for 2027-28", 210, 6, "2015/06/9-Albert-Street-Web-2-Copy-488x326.jpg"),
+  loc8me("wynyard-grove", "Wynyard Grove", "Wynyard Grove", "gilesgate", "DH1 2QJ", 54.77957, -1.55482, "Available 01/07/2027", 190, 9, "2025/09/8583258.jpg", "D"),
+  loc8me("gilesgate-5", "Gilesgate", "Gilesgate", "gilesgate", "DH1 1HY", 54.77852, -1.56137, "Available 01/07/2027", 195, 4, "2025/10/7912532.jpg"),
+  loc8me("county-durham", "County Durham", "Gilesgate Bank", "gilesgate", "DH1 1HY", 54.77865, -1.56069, "Available 01/07/2027", 195, 6, "2025/10/7932062.jpg", "C"),
+  loc8me("douglas-villas", "Douglas Villas", "48 Douglas Villas", "gilesgate", "DH1 1JL", 54.78018, -1.56482, "Available 25/09/2027", 205, 4, "2026/10/9992809.png"),
+  loc8me("wakenshaw-road", "Wakenshaw Road", "103 Wakenshaw Road", "gilesgate", "DH1 1EP", 54.78294, -1.55732, "Available 01/07/2027", 147, 4, "2025/10/8229061.jpg"),
+  loc8me("orchard-drive-4", "Orchard Drive", "Orchard Drive", "gilesgate", "DH1 1LA", 54.78074, -1.5634, "Available 01/07/2027", 155, 6, "2026/11/7945364.jpg"),
+  loc8me("donnini-place", "Donnini Place", "36 Donnini Place", "gilesgate", "DH1 1ES", 54.78082, -1.55483, "Available 01/07/2027", 162, 4, "2026/10/7926607.jpg"),
+  loc8me("sherburn-road", "Sherburn Road", "Sherburn Road", "gilesgate", "DH1 2JR", 54.77866, -1.55473, "Available 27/06/2027", 168, 3, "2025/09/7912324.jpg"),
+  loc8me("bradford-crescent", "Bradford Crescent", "Bradford Crescent", "gilesgate", "DH1 1ER", 54.78324, -1.55587, "Available 08/07/2027", 171, 3, "2025/09/7933551.jpg"),
+  loc8me("west-view", "West View", "West View", "gilesgate", "DH1 1HZ", 54.77934, -1.56005, "Available 01/07/2027", 173, 4, "2026/10/8399868.jpg"),
+  loc8me("orchard-drive-2", "Orchard Drive", "Orchard Drive", "gilesgate", "DH1 1LA", 54.78083, -1.56319, "Available 01/07/2027", 180, 6, "2025/09/7926795.jpg"),
+  loc8me("west-view-l-2", "West View (L)", "West View", "gilesgate", "DH1 1HZ", 54.77928, -1.56006, "Available 30/06/2027", 185, 5, "2025/10/7912604.jpg"),
+  loc8me("gort-place", "Gort Place", "Gort Place", "gilesgate-moor", "DH1 1EY", 54.78218, -1.55377, "Available 01/07/2027", 133, 2, "2025/09/9031906.jpg"),
+  loc8me("habgood-drive-2", "Habgood Drive", "Habgood Drive", "gilesgate-moor", "DH1 2TN", 54.77482, -1.54447, "Available 01/07/2027", 156, 4, "2025/10/8327900.jpg"),
+  loc8me("habgood-drive", "Habgood Drive", "Habgood Drive", "gilesgate-moor", "DH1 2TN", 54.77547, -1.54404, "Available 01/07/2027", 159, 4, "2025/10/8296684.jpg"),
+  loc8me("wesley-house", "Wesley House", "Wesley House", "gilesgate-moor", "DH1 2JD", 54.77932, -1.54342, "Available 01/07/2027", 162, 6, "2026/10/9975991.png"),
+  loc8me("musgrave-gardens", "Musgrave Gardens", "Musgrave Gardens", "gilesgate-moor", "DH1 1PL", 54.78074, -1.5486, "Available 01/07/2027", 164, 4, "2026/10/7912955.jpg"),
+  loc8me("kepier-crescent-2", "Kepier Crescent", "Kepier Crescent", "gilesgate-moor", "DH1 1PQ", 54.78199, -1.54647, "Available 09/07/2027", 165, 4, "2026/10/7926800.jpg"),
+  loc8me("edward-street", "Edward Street", "Edward Street", "gilesgate-moor", "DH1 1PU", 54.78045, -1.55299, "Available 01/07/2027", 165, 4, "2025/09/8307026.jpg"),
+  loc8me("musgrave-gardens-2", "Musgrave Gardens", "Musgrave Gardens", "gilesgate-moor", "DH1 1PL", 54.78074, -1.54848, "Available 01/07/2027", 166, 5, "2025/09/7912480.jpg"),
+  loc8me("churchill-square", "Churchill Square", "58 Churchill Square", "gilesgate-moor", "DH1 1EU", 54.78146, -1.55397, "Available 13/07/2027", 168, 3, "2026/10/7912782.jpg"),
+  loc8me("edward-street-2", "Edward Street", "Edward Street", "gilesgate-moor", "DH1 1PU", 54.78045, -1.55287, "Available 14/07/2027", 176, 4, "2025/10/7912735.jpg"),
+  loc8me("hartley-gardens", "Hartley Gardens", "31 Hartley Gardens", "gilesgate-moor", "DH1 1GZ", 54.78427, -1.5495, "Available 01/07/2027", 185, 2, "2026/11/9946456.jpg"),
+  sturents("whinney-hill/225881?contract=296190", "Whinney Hill", "DH1 3BD", "Harringtons Students", 54.77065, -1.56696, "Available from 1 Jul 2027", 189, 6, ["6485816.jpg", "9980940.jpg"]),
+  sturents("whinney-hill/351795?contract=471735", "Whinney Hill", "DH1 3BD", "Harringtons Students", 54.77035, -1.56713, "Available from 1 Jul 2027", 189, 6, ["10011456.jpg", "10003968.jpg"]),
+  sturents("whinney-hill/429669?contract=624953", "Whinney Hill", "DH1 3BD", "Harringtons Students", 54.77005, -1.5673, "Available from 1 Jul 2027", 209, 4, ["10001007.jpg", "10001000.jpg"]),
+  sturents("whinney-hill/253452?contract=327370", "Whinney Hill", "DH1 3BQ", "Harringtons Students", 54.77244, -1.5662, "Available from 1 Jul 2027", 219, 4, ["6835918.jpg", "7255957.jpg"]),
+  sturents("mount-joy-crescent/112942?contract=57189", "Mount Joy Crescent", "DH1 3BA", "J W Wood", 54.76933, -1.56903, "Available from 2 Jul 2027", 238, 4, ["6230374.png", "8565362.jpg"]),
+  sturents("illingworth-grove/384871?contract=536202", "Illingworth Grove", "DH1 3BL", "J W Wood", 54.77157, -1.5653, "Available from 5 Jul 2027", 325, 2, ["8740489.jpg", "8740476.jpg"], "2–3 bed, check advert"),
+  urbis("36-the-avenue-durham", "36 The Avenue", "crossgate", "DH1 4EB", 54.77375, -1.58839, "under-offer", "Under Reservation for 2027-28", 210, 7, "2020/09/36-The-Avenue-Ext-Web-1-Copy-488x326.jpg"),
+  urbis("38-the-avenue-durham", "38 The Avenue", "crossgate", "DH1 4EB", 54.77375, -1.58827, "under-offer", "Under Reservation for 2027-28", 210, 7, "2015/06/38-The-Avenue-Ext-Web-2-Copy-488x326.jpg"),
+  urbis("37-the-avenue-durham", "37 The Avenue", "crossgate", "DH1 4EB", 54.77375, -1.58815, "under-offer", "Under Reservation for 2027-28", 210, 7, "2015/06/house2pic2-244x163.jpg"),
+  urbis("15421-southwest-39th-terrace", "39 The Avenue", "crossgate", "DH1 4EB", 54.77361, -1.58841, "under-offer", "Under Reservation for 2027-28", 210, 6, "2014/06/house1pic4-244x163.jpg"),
+  loc8me("lowes-barn-bank-2", "Lowes Barn Bank", "Lowes Barn Bank", "nevilles-cross", "DH1 3QJ", 54.76684, -1.59509, "Available 27/06/2027", 190, 5, "2026/10/7924318.jpg"),
+  loc8me("st-johns-road", "St Johns Road", "St Johns Road", "nevilles-cross", "DH1 4NU", 54.77264, -1.593, "Available 28/06/2027", 205, 5, "2025/10/9362125.png"),
+  loc8me("st-bedes-close-3", "St Bedes Close", "St Bedes Close", "nevilles-cross", "DH1 4AB", 54.77506, -1.59502, "Available 01/07/2027", 205, 6, "2025/09/8637316.jpg"),
+  loc8me("st-bedes-close-2", "St Bedes Close", "St Bedes Close", "nevilles-cross", "DH1 4AB", 54.77517, -1.59646, "Available 01/07/2027", 210, 6, "2026/10/9010414.jpg"),
+  loc8me("neville-terrace", "Neville Terrace", "Neville Terrace", "nevilles-cross", "DH1 4AH", 54.77838, -1.59724, "Available 04/07/2027", 154, 4, "2025/10/7922116.jpg"),
+  loc8me("kells-building", "Kells Building", "Kells Building, Nevilles Cross Bank", "nevilles-cross", "DH1 4JL", 54.76989, -1.59731, "Available 01/07/2027", 164, 4, "2026/11/7912997.jpg"),
+  loc8me("homer-terrace", "Homer Terrace", "Homer Terrace", "nevilles-cross", "DH1 4JT", 54.77111, -1.59554, "Available 01/07/2027", 164, 4, "2026/11/7912675.jpg"),
+  loc8me("nevilles-cross-bank", "Nevilles Cross Bank", "Nevilles Cross Bank", "nevilles-cross", "DH1 4JF", 54.77169, -1.59554, "Available 01/07/2027", 166, 4, "2026/11/8593474.jpg"),
+  loc8me("neville-terrace-l", "Neville Terrace (L)", "9 Neville Terrace", "nevilles-cross", "DH1 4AH", 54.77808, -1.59727, "Available 01/07/2027", 185, 3, "2026/10/8736949.jpg"),
+  loc8me("high-street-north", "High Street North", "High Street North", "langley-moor", "DH7 8JH", 54.7562, -1.61283, "Available 01/07/2027", 165, 3, "2025/10/8614964.jpg", "D"),
+  loc8me("high-street-north-2", "High Street North", "103 High Street North", "langley-moor", "DH7 8JH", 54.75664, -1.61234, "Available 01/07/2027", 165, 3, "2025/10/8370792.jpg"),
+  loc8me("high-street-south", "High Street South", "High Street South", "langley-moor", "DH7 8EX", 54.75717, -1.61109, "Available 05/07/2027", 167, 3, "2025/10/8592583.jpg"),
+  loc8me("john-street-south", "John Street South", "John Street South", "langley-moor", "DH7 8RP", 54.75215, -1.61725, "Available 01/07/2027", 175, 3, "2026/10/8490208-31-scaled.jpg"),
 ];
 
 export const CITIES: City[] = [
@@ -121,6 +194,9 @@ export const RISK_LAYERS: { id: RiskLayer; label: string; legend: Partial<Record
   { id: "hmo", label: "HMO Licensing", legend: { low: "Under 5 beds", med: "5+ beds: licence needed" } },
   { id: "crime", label: "Crime & Noise", legend: { low: "Quiet", med: "Moderate", high: "Loud at night" } },
 ];
+
+/** "4 bed", or the listing's own note when the advert is unclear about the count. */
+export const bedsOf = (hs: House) => hs.bedroomsNote ?? `${hs.bedrooms} bed`;
 
 /** Mandatory HMO licensing in England applies to 5+ occupants in 2+ households. */
 export const needsHmoLicence = (hs: House) => hs.bedrooms >= 5;

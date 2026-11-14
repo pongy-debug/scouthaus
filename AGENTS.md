@@ -31,6 +31,6 @@ use the editor.
 
 ## HouseHunt
 - All data and contract analysis live client-side in src/lib/hh (no backend/APIs) — app must work offline.
-- 3D map is R3F loaded lazily on an ssr:false route; scene colours are three.js constants in DurhamScene.
+- Find House maps use MapLibre (OpenFreeMap positron vector tiles, fill-extrusion) in StreetMap, lazy-loaded on ssr:false routes; X-Ray map is still R3F (DurhamScene).
 - Find House areas/houses live in src/lib/hh/find.ts (CITIES); scenes place them with `project()` from real lat/lng — add cities there, not in components.
 - Route modules must not import scene modules (three.js) statically; shared helpers like overviewPos live in three-free files.

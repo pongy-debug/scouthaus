@@ -6,7 +6,7 @@ import { MapFallback, useWebGL } from "@/components/hh/MapFallback";
 import { CITIES, findCity } from "@/lib/hh/find";
 import { overviewPos } from "@/components/hh/overviewPos";
 
-const AreaOverviewScene = lazy(() => import("@/components/hh/AreaOverviewScene"));
+const StreetMap = lazy(() => import("@/components/hh/StreetMap"));
 
 export const Route = createFileRoute("/find/$city/")({
   ssr: false,
@@ -42,7 +42,7 @@ function Overview() {
         {gl === false ? (
           <MapFallback points={city.areas.map((a) => { const [x, z] = overviewPos(city, a); return { id: a.id, x, z, label: `${a.name} · ${a.postcode}`, tone: a.active ? "primary" : "muted", onClick: a.active ? () => pick(a.id) : undefined }; })} />
         ) : gl ? (
-          <Suspense fallback={<Skeleton className="h-full w-full" />}><AreaOverviewScene city={city} onPick={pick} /></Suspense>
+          <Suspense fallback={<Skeleton className="h-full w-full" />}><StreetMap mode="overview" city={city} onPick={pick} /></Suspense>
         ) : <Skeleton className="h-full w-full" />}
       </div>
       <SiteFooter />

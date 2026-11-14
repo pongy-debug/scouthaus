@@ -10,7 +10,7 @@ import { MapFallback, useWebGL } from "@/components/hh/MapFallback";
 import { PropertyDrawer } from "@/components/hh/PropertyDrawer";
 import { CITIES, findCity, houseToProperty, project, type Availability, type House } from "@/lib/hh/find";
 
-const AreaDetailScene = lazy(() => import("@/components/hh/AreaDetailScene"));
+const StreetMap = lazy(() => import("@/components/hh/StreetMap"));
 
 const LEGEND: { id: Availability; label: string; cls: string }[] = [
   { id: "available", label: "Available", cls: "bg-success" },
@@ -44,7 +44,7 @@ function Detail() {
   const city = CITIES.find((c) => c.id === cityId)!;
   const area = city.areas.find((a) => a.id === areaId)!;
   const [onlyAvail, setOnlyAvail] = useState(false);
-  const [hovered, setHovered] = useState<string | null>(null);
+  
   const [open, setOpen] = useState<House | null>(null);
   const gl = useWebGL();
   const houses = city.houses.filter((h) => h.area === area.id && (!onlyAvail || h.availability === "available"));
@@ -64,14 +64,14 @@ function Detail() {
           <MapFallback points={houses.map((h) => { const [x, z] = project(h.lat, h.lng, area, 40); return { id: h.id, x, z, label: h.name, tone: h.availability === "available" ? "success" : h.availability === "let" ? "muted" : "warning", onClick: () => setOpen(h) }; })} />
         ) : gl ? (
           <Suspense fallback={<Skeleton className="h-full w-full" />}>
-            <AreaDetailScene area={area} houses={houses} hovered={hovered} setHovered={setHovered} onOpen={setOpen} />
+            <StreetMap mode="detail" city={city} area={area} houses={houses} onOpen={setOpen} />
           </Suspense>
         ) : <Skeleton className="h-full w-full" />}
         <div className="glass absolute left-3 top-3 space-y-1 p-2 text-xs">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{area.name} · {area.postcode} · {houses.length} houses</div>
           {LEGEND.map((l) => <div key={l.id} className="flex items-center gap-2"><span className={`size-3 rounded-sm ${l.cls}`} />{l.label}</div>)}
         </div>
-        <div className="absolute bottom-3 right-3 font-mono text-[10px] text-muted-foreground">hover near a house · click for X-ray · drag to orbit</div>
+        <div className="absolute bottom-3 right-3 font-mono text-[10px] text-muted-foreground">hover near a house · click for X-ray · right-drag to tilt/orbit</div>
       </div>
       <SiteFooter />
       <Sheet open={!!open} onOpenChange={(o) => !o && setOpen(null)}>

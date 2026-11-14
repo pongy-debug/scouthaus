@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
+import { ExternalLink } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { AVAIL_LABEL, type Area, type Availability, type House } from "@/lib/hh/find";
+import { HouseThumb } from "@/components/hh/HousePhoto";
+import { AVAIL_LABEL, advertUrl, type Area, type Availability, type House } from "@/lib/hh/find";
 
 const BADGE: Record<Availability, string> = {
   available: "border-success/50 bg-success/15 text-success",
@@ -30,16 +32,27 @@ export function HouseList({ groups, grouped, hoverId, selectedId, availableOnly,
         {groups.map((g) => g.houses.length > 0 && (
           <section key={g.area.id}>
             {grouped && <h3 className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{g.area.name} · {g.houses.length}</h3>}
-            {g.houses.map((h) => (
-              <button key={h.id} type="button" data-house={h.id} onMouseEnter={() => onHover(h.id)} onFocus={() => onHover(h.id)} onClick={() => onPick(h)}
-                className={`flex w-full items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-left transition ${h.id === selectedId ? "border-primary bg-primary/15" : h.id === hoverId ? "border-primary/60 bg-accent" : "border-transparent"}`}>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{h.name}</span>
-                  <span className="block truncate font-mono text-[11px] text-muted-foreground">{g.area.name} · £{h.rent} pppw · {h.bedrooms} bed</span>
-                </span>
-                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${BADGE[h.availability]}`}>{AVAIL_LABEL[h.availability]}</span>
-              </button>
-            ))}
+            {g.houses.map((h) => {
+              const url = advertUrl(h);
+              return (
+                <div key={h.id} onMouseEnter={() => onHover(h.id)}
+                  className={`flex items-center rounded-md border transition ${h.id === selectedId ? "border-primary bg-primary/15" : h.id === hoverId ? "border-primary/60 bg-accent" : "border-transparent"}`}>
+                  <button type="button" data-house={h.id} onFocus={() => onHover(h.id)} onClick={() => onPick(h)} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left">
+                    <HouseThumb house={h} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{h.name}</span>
+                      <span className="block truncate font-mono text-[11px] text-muted-foreground">{g.area.name} · £{h.rent} pppw · {h.bedrooms} bed</span>
+                    </span>
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${BADGE[h.availability]}`}>{AVAIL_LABEL[h.availability]}</span>
+                  </button>
+                  {url && (
+                    <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`View original advert for ${h.name}`} title="View original advert" className="shrink-0 p-2 text-muted-foreground hover:text-primary">
+                      <ExternalLink className="size-3.5" />
+                    </a>
+                  )}
+                </div>
+              );
+            })}
           </section>
         ))}
       </div>

@@ -1,7 +1,7 @@
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type MapGeoJSONFeature } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
-import { AVAIL_LABEL, areaCircle, areaStats, riskLabel, riskOf, type Area, type Availability, type City, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { AVAIL_LABEL, advertUrl, areaCircle, areaStats, riskLabel, riskOf, type Area, type Availability, type City, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
 
 // MapLibre paint needs concrete colours (mirrors design tokens)
 export const AVAIL_COLOR: Record<Availability, string> = { available: "#10B981", "under-offer": "#F59E0B", let: "#64748B" };
@@ -248,6 +248,13 @@ export default function StreetMap(props: StreetMapProps) {
     const tag = document.createElement("div");
     tag.className = "pointer-events-none whitespace-nowrap rounded-md border border-primary bg-popover px-2 py-1 font-mono text-[11px] text-popover-foreground shadow-lg";
     tag.textContent = `${h.name} · £${h.rent} pppw · ${h.bedrooms} bed · ${AVAIL_LABEL[h.availability]}`;
+    const url = advertUrl(h);
+    if (url) {
+      // Only listings with a real advert get a link; the tooltip becomes clickable for it.
+      const link = Object.assign(document.createElement("a"), { href: url, target: "_blank", rel: "noopener noreferrer", textContent: "View original advert ↗" });
+      link.className = "ml-2 text-primary underline";
+      tag.append(link); tag.classList.remove("pointer-events-none");
+    }
     const marker = new maplibregl.Marker({ element: tag, anchor: "bottom", offset: [0, -34] }).setLngLat([h.lng, h.lat]).addTo(m);
     selMarker.current = marker;
     return () => { if (selMarker.current === marker) { marker.remove(); selMarker.current = null; } };

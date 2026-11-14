@@ -1,4 +1,5 @@
 import { PROPERTIES, epcFromScore, type Property } from "./data";
+import { IMAGE_SOURCE } from "./config";
 
 export type Availability = "available" | "under-offer" | "let";
 
@@ -10,6 +11,10 @@ export interface House {
   lat: number; lng: number; availability: Availability; rent: number; bedrooms: number;
   /** EPC, heating, damp, noise and rent-benchmark telemetry shown in the X-Ray drawer. */
   xray: Property;
+  /** The listing's real advert page, saved at import. Leave unset when there is none — never a made-up or generic URL. */
+  sourceUrl?: string;
+  /** Photo URLs from that advert: main photo first, then up to 4 more. URLs only; images are never downloaded or re-hosted. */
+  photos?: string[];
 }
 export interface City { id: string; name: string; center: { lat: number; lng: number }; areas: Area[]; houses: House[] }
 
@@ -144,12 +149,26 @@ export function trueMonthlyCost(hs: House) {
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
-export interface Filters { maxRent: number; minBeds: number; epc: "any" | "C" | "D"; availability: "all" | Availability }
+export interface Filters { maxRent: number; minBeds: number; maxBeds: number; epc: "any" | "C" | "D"; availability: "all" | Availability }
 export const rentRange = (city: City) => ({ min: Math.min(...city.houses.map((x) => x.rent)), max: Math.max(...city.houses.map((x) => x.rent)) });
-export const defaultFilters = (city: City): Filters => ({ maxRent: rentRange(city).max, minBeds: 0, epc: "any", availability: "all" });
+/** Smallest and largest bedroom count among the loaded listings. */
+export const bedRange = (city: City) => ({ min: Math.min(...city.houses.map((x) => x.bedrooms)), max: Math.max(...city.houses.map((x) => x.bedrooms)) });
+export const defaultFilters = (city: City): Filters => ({ maxRent: rentRange(city).max, minBeds: bedRange(city).min, maxBeds: bedRange(city).max, epc: "any", availability: "all" });
+/** "Any" for the full range, otherwise "4–6" or "5". */
+export function bedsLabel(f: Pick<Filters, "minBeds" | "maxBeds">, range: { min: number; max: number }) {
+  if (f.minBeds <= range.min && f.maxBeds >= range.max) return "Any";
+  return f.minBeds === f.maxBeds ? `${f.minBeds}` : `${f.minBeds}–${f.maxBeds}`;
+}
 export function applyFilters(hs: House[], f: Filters) {
-  return hs.filter((x) => x.rent <= f.maxRent && x.bedrooms >= f.minBeds && (f.epc === "any" || x.xray.epc <= f.epc)
+  return hs.filter((x) => x.rent <= f.maxRent && x.bedrooms >= f.minBeds && x.bedrooms <= f.maxBeds && (f.epc === "any" || x.xray.epc <= f.epc)
     && (f.availability === "all" || x.availability === f.availability));
 }
 
 export const AVAIL_LABEL: Record<Availability, string> = { available: "Available", "under-offer": "Reserved", let: "Taken" };
+
+// ── Advert links and photos ──────────────────────────────────────────────────
+const http = (u: string | undefined) => { try { return u && /^https?:$/.test(new URL(u).protocol) ? u : null; } catch { return null; } };
+/** The listing's real advert URL, or null — callers hide their link when it is null. */
+export const advertUrl = (hs: House) => http(hs.sourceUrl);
+/** Photo URLs to show for a listing under the configured IMAGE_SOURCE (main photo first, at most 5). */
+export const photosOf = (hs: House): string[] => (IMAGE_SOURCE === "agent" ? (hs.photos ?? []).map(http).filter((u): u is string => !!u).slice(0, 5) : []);

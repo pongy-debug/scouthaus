@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { askMap, type MapAction } from "@/lib/hh/assistant";
-import { AVAIL_LABEL, RISK_LAYERS, type Area, type Filters, type House, type RiskLayer } from "@/lib/hh/find";
+import { AVAIL_LABEL, RISK_LAYERS, bedsLabel, type Area, type Filters, type House, type RiskLayer } from "@/lib/hh/find";
 
 interface Msg { role: "user" | "assistant"; text: string; applied?: string[]; error?: boolean }
 export interface AskMapState { filters: Filters; layer: RiskLayer; areaId: string | null; selectedId: string | null }
 
-const SUGGESTIONS = ["4 beds under £150, warm and quiet", "Cheapest available house near Claypath", "Which house has the lowest true monthly cost?"];
+const SUGGESTIONS = ["4–5 beds in Gilesgate under £150, available only", "We're a group of 5 — quietest house?", "Which house has the lowest true monthly cost?"];
 const HELLO: Msg = { role: "assistant", text: "Tell me what you're looking for — budget, bedrooms, warm, quiet, an area — and I'll set the filters and fly you to the best match." };
 
 /** What the assistant changed on the map, shown as chips under its reply. */
 function describe(a: MapAction, prev: AskMapState, areas: Area[], houses: House[]): string[] {
+  const beds = { min: Math.min(...houses.map((h) => h.bedrooms)), max: Math.max(...houses.map((h) => h.bedrooms)) };
   const out: string[] = [];
   const f = a.filters, p = prev.filters;
   if (f.maxRent !== p.maxRent) out.push(`Max £${f.maxRent} pppw`);
-  if (f.minBeds !== p.minBeds) out.push(f.minBeds ? `${f.minBeds}+ beds` : "Any beds");
+  if (f.minBeds !== p.minBeds || f.maxBeds !== p.maxBeds) { const b = bedsLabel(f, beds); out.push(b === "Any" ? "Any bedrooms" : `${b} bedrooms`); }
   if (f.epc !== p.epc) out.push(f.epc === "any" ? "Any EPC" : `EPC ${f.epc} or better`);
   if (f.availability !== p.availability) out.push(f.availability === "all" ? "Any availability" : `${AVAIL_LABEL[f.availability]} only`);
   if (a.layer !== prev.layer) out.push(`Layer: ${RISK_LAYERS.find((l) => l.id === a.layer)!.label}`);

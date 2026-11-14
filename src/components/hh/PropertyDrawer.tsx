@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { GitCompareArrows, Star, X } from "lucide-react";
+import { CalendarCheck, ExternalLink, GitCompareArrows, Star, X } from "lucide-react";
+import { HouseGallery } from "@/components/hh/HousePhoto";
 import { Button } from "@/components/ui/button";
-import { AVAIL_LABEL, needsHmoLicence, trueMonthlyCost, type House } from "@/lib/hh/find";
+import { AVAIL_LABEL, advertUrl, needsHmoLicence, trueMonthlyCost, type House } from "@/lib/hh/find";
 
 const EPCS = ["A", "B", "C", "D", "E", "F", "G"] as const;
 const epcTone = (e: string) => (e <= "B" ? "bg-success" : e <= "D" ? "bg-warning" : "bg-destructive");
@@ -13,8 +14,10 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
   const diff = Math.round(((p.rent - p.median) / p.median) * 100);
   const cost = trueMonthlyCost(house);
   const hmo = needsHmoLicence(house);
+  const advert = advertUrl(house);
   return (
     <div className="grid gap-3">
+      <HouseGallery house={house} />
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-xs uppercase tracking-widest text-muted-foreground">Property X-Ray</div>
@@ -26,8 +29,15 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant={pinned ? "default" : "outline"} onClick={onToggleCompare}><GitCompareArrows /> {pinned ? "Added to Compare" : "Add to Compare"}</Button>
+        {advert && <Button asChild size="sm" variant="outline"><a href={advert} target="_blank" rel="noopener noreferrer"><ExternalLink /> View original advert</a></Button>}
         <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">{p.area} · {p.tag}</span>
       </div>
+      {advert && (
+        <Stat title="Viewing">
+          <p className="mb-2 text-xs text-muted-foreground">Viewings are arranged by the letting agent on their own advert page.</p>
+          <Button asChild size="sm"><a href={advert} target="_blank" rel="noopener noreferrer"><CalendarCheck /> Book a viewing with {house.landlord}</a></Button>
+        </Stat>
+      )}
       <Stat title="True monthly cost">
         <div className="font-mono text-2xl font-semibold">£{cost.total}<span className="text-sm text-muted-foreground">/mo per person</span></div>
         <p className="mt-1 text-xs text-muted-foreground">£{cost.rent} rent (£{house.rent} pppw × 52 ÷ 12) + £{cost.energy} winter heating share (£{p.bill} ÷ {house.bedrooms} beds)</p>

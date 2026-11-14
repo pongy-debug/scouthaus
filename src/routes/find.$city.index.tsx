@@ -12,9 +12,10 @@ import { PropertyDrawer } from "@/components/hh/PropertyDrawer";
 import { HouseList } from "@/components/hh/HouseList";
 import { CompareDialog, MAX_COMPARE } from "@/components/hh/CompareDialog";
 import { AskMap } from "@/components/hh/AskMap";
+import { BedRange } from "@/components/hh/BedRange";
 import type { MapAction } from "@/lib/hh/assistant";
 import { overviewPos } from "@/components/hh/overviewPos";
-import { AVAIL_LABEL, CITIES, RISK_LAYERS, applyFilters, defaultFilters, findCity, project, rentRange, type Availability, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { AVAIL_LABEL, CITIES, RISK_LAYERS, applyFilters, bedRange, defaultFilters, findCity, project, rentRange, type Availability, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
 
 const StreetMap = lazy(() => import("@/components/hh/StreetMap"));
 
@@ -61,6 +62,7 @@ function FindMap() {
   const groups = (area ? [area] : city.areas.filter((a) => a.active)).map((a) => ({ area: a, houses: houses.filter((h) => h.area === a.id) }));
   const listed = groups.reduce((n, g) => n + g.houses.length, 0);
   const rents = rentRange(city);
+  const beds = bedRange(city);
   const legend = RISK_LAYERS.find((l) => l.id === layer)!.legend;
   // The list and the X-Ray share one slot, so an open drawer always collapses the list.
   const showList = listOpen && !selected;
@@ -106,11 +108,7 @@ function FindMap() {
           <input type="range" min={rents.min} max={rents.max} step={1} value={filters.maxRent} onChange={(e) => set("maxRent", Number(e.target.value))} className="w-28 accent-primary" />
           <span className="w-16 font-mono text-foreground">£{filters.maxRent} pppw</span>
         </label>
-        <label className="flex items-center gap-2">Bedrooms
-          <select className={field} value={filters.minBeds} onChange={(e) => set("minBeds", Number(e.target.value))}>
-            <option value={0}>Any</option><option value={4}>4+</option><option value={5}>5+</option><option value={6}>6+</option>
-          </select>
-        </label>
+        <BedRange min={beds.min} max={beds.max} value={[filters.minBeds, filters.maxBeds]} onChange={([lo, hi]) => setFilters((f) => ({ ...f, minBeds: lo, maxBeds: hi }))} />
         <label className="flex items-center gap-2">EPC
           <select className={field} value={filters.epc} onChange={(e) => set("epc", e.target.value as Filters["epc"])}>
             <option value="any">Any</option><option value="C">C or better</option><option value="D">D or better</option>

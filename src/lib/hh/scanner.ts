@@ -56,20 +56,25 @@ export function splitClauses(text: string): { num: string; text: string }[] {
 export function scan(text: string): ScanResult {
   const clauses = splitClauses(text);
   const flags: Flag[] = [];
-  let illegalFees = 0, unenforceable = 0;
+  let unenforceable = 0;
   for (const c of clauses) {
     for (const r of RULES) {
       if (!r.test.test(c.text)) continue;
       const fee = r.fee ? Number(c.text.match(/£\s?(\d+)/)?.[1] ?? 0) : 0;
-      illegalFees += fee;
       if (r.unenforceable) unenforceable++;
       flags.push({ id: `${r.id}-${c.num}`, clause: c.num, label: r.label, severity: r.severity, text: c.text, statute: r.statute, explain: r.explain, fee, ask: r.ask });
       break;
     }
   }
+  return toResult(clauses.length, flags, unenforceable);
+}
+
+/** Risk score and totals for a set of flags (shared by the local rules and the Gemini analysis). */
+export function toResult(clauses: number, flags: Flag[], unenforceable: number): ScanResult {
+  const illegalFees = flags.reduce((s, f) => s + f.fee, 0);
   const raw = flags.reduce((s, f) => s + (f.severity === "red" ? 22 : 13), 0) + Math.min(15, illegalFees / 25);
   const score = flags.length ? Math.min(99, Math.round(raw + 8)) : 6;
-  return { clauses: clauses.length, flags, score, illegalFees, unenforceable };
+  return { clauses, flags, score, illegalFees, unenforceable };
 }
 
 export function buildEmail(flags: Flag[], address = "the property"): string {

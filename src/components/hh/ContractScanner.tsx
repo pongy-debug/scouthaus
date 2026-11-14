@@ -6,13 +6,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SAMPLES, type SampleKey } from "@/lib/hh/samples";
 import { scan, buildEmail, splitClauses, type ScanResult, type Flag } from "@/lib/hh/scanner";
+import { analyseContract, type AiScan } from "@/lib/hh/gemini";
 
-async function readPdfText(file: File) {
-  // Lightweight local PDF text pull: reads uncompressed text operators. Scanned/compressed PDFs may return little.
-  const raw = new TextDecoder("latin1").decode(await file.arrayBuffer());
-  const parts = [...raw.matchAll(/\(([^()]{3,})\)\s*Tj/g)].map((m) => m[1]);
-  return parts.join("\n");
+// PDFs and photos are read locally (pdf.js text layer, OCR for scanned pages); the reader is loaded on first use.
+async function readFile(file: File, progress: (m: string) => void) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf") || file.type === "application/pdf") return (await import("@/lib/hh/pdf")).readPdf(file, progress);
+  if (file.type.startsWith("image/")) return (await import("@/lib/hh/pdf")).readImage(file, progress);
+  return file.text();
 }
+
+const isDoc = (f: File) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") || f.type.startsWith("image/");
+const toBase64 = (f: File) => new Promise<string>((ok, fail) => {
+  const r = new FileReader();
+  r.onload = () => ok(String(r.result).split(",")[1] ?? ""); r.onerror = () => fail(r.error);
+  r.readAsDataURL(f);
+});
+const MAX_AI_FILE = 10 * 1024 * 1024;
+type Source = { by: "gemini" } | { by: "local"; why?: string };
 
 export function ContractScanner() {
   const [text, setText] = useState("");
@@ -23,6 +34,8 @@ export function ContractScanner() {
   const [open, setOpen] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
+  const [reading, setReading] = useState<string | null>(null);
+  const [source, setSource] = useState<Source | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const run = (t: string, addr = address) => {
@@ -35,19 +48,49 @@ export function ContractScanner() {
       else setProgress(p);
     }, 90);
   };
-  const loadSample = () => { const s = SAMPLES[sample]; setText(s.text); run(s.text, s.address); };
-  const onFile = async (f: File) => {
-    const t = f.name.toLowerCase().endsWith(".pdf") ? await readPdfText(f) : await f.text();
-    if (!t.trim()) { toast.error("Couldn't read text from that file — try pasting the clauses instead"); return; }
-    setText(t); run(t, "the property");
+  const loadSample = () => { const s = SAMPLES[sample]; setText(s.text); setSource({ by: "local" }); run(s.text, s.address); };
+
+  // Gemini reads and analyses the contract; if it is unavailable the local reader and rules take over.
+  const analyse = async (input: { text: string } | { file: File }) => {
+    if (reading) return;
+    const file = "file" in input ? input.file : null;
+    const pasted = "text" in input ? input.text : "";
+    if (!file && !pasted.trim()) { toast.error("Paste a contract or load a sample first"); return; }
+    setResult(null); setSource(null);
+    let ai: AiScan;
+    if (file && isDoc(file) && file.size > MAX_AI_FILE) ai = { ok: false, reason: "failed", message: "File is over 10 MB" };
+    else {
+      setReading(file ? `Gemini is reading ${file.name}…` : "Gemini is analysing the contract…");
+      try {
+        const text = file ? (isDoc(file) ? undefined : await file.text()) : pasted;
+        ai = await analyseContract({ data: file && isDoc(file) ? { file: { name: file.name, mime: file.type || "application/pdf", data: await toBase64(file) } } : { text: text ?? "" } });
+      } catch (e) { console.warn("Gemini request failed", e); ai = { ok: false, reason: "failed", message: "Could not reach Gemini" }; }
+    }
+    if (ai.ok) {
+      setReading(null); setAddress(ai.address || "the property"); setSource({ by: "gemini" });
+      setResult(ai.result); setOpen(ai.result.flags[0]?.id ?? null);
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    const why = ai.reason === "no-key" ? "Gemini key not configured" : ai.message;
+    let t = file ? "" : pasted;
+    if (file) {
+      try { t = await readFile(file, setReading); }
+      catch (e) { console.warn("Contract file could not be read", e); }
+      finally { if (fileRef.current) fileRef.current.value = ""; }
+    }
+    setReading(null);
+    if (!t.trim()) { toast.error("Couldn't read text from that file — is it password-protected or blank? Try pasting the clauses instead"); return; }
+    setText(t); setSource({ by: "local", why }); run(t, "the property");
   };
+  const onFile = (f: File) => void analyse({ file: f });
   const clauseCount = splitClauses(text).length;
   const risk = result ? (result.score >= 60 ? "text-destructive" : result.score >= 30 ? "text-warning" : "text-primary") : "";
 
   return (
     <div className="glass flex h-full flex-col gap-3 overflow-hidden p-4">
       <div>
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">Local AI · runs in your browser</div>
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">Gemini AI · local rules as fallback</div>
         <h2 className="text-lg font-bold">Tenancy Contract Red-Flag Scanner</h2>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -60,14 +103,16 @@ export function ContractScanner() {
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
         className={`rounded-lg border border-dashed p-2 transition ${drag ? "border-primary bg-primary/10" : "border-border"}`}>
-        <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste tenancy clauses here, or drop a .txt / .pdf contract…" className="h-24 resize-none border-0 bg-transparent font-mono text-xs focus-visible:ring-0" />
+        <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste tenancy clauses here, or drop a .txt / .pdf contract or a photo of one…" className="h-24 resize-none border-0 bg-transparent font-mono text-xs focus-visible:ring-0" />
         <div className="flex items-center justify-between gap-2">
           <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><FileUp className="size-3.5" /> Upload file</button>
-          <input ref={fileRef} type="file" accept=".txt,.pdf,text/plain,application/pdf" hidden onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
-          <Button size="sm" variant="secondary" onClick={() => run(text)}>Scan text</Button>
+          <input ref={fileRef} type="file" accept=".txt,.pdf,text/plain,application/pdf,image/*" hidden onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
+          <Button size="sm" variant="secondary" disabled={!!reading} onClick={() => void analyse({ text })}>Scan text</Button>
         </div>
+        <p className="mt-1 text-[10px] text-muted-foreground">Uploaded files and scanned text are sent to Google Gemini for analysis. The built-in samples are checked locally.</p>
       </div>
 
+      {reading && <div className="font-mono text-[11px] text-primary" role="status">{reading}</div>}
       {progress !== null && (
         <div className="space-y-1">
           <div className="font-mono text-[11px] text-primary">Scanning {clauseCount} clauses against UK Tenant Fees Act 2019 & Housing Act 1988...</div>
@@ -82,6 +127,7 @@ export function ContractScanner() {
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div className="rounded-lg border border-border bg-background/40 p-3">
             <div className={`font-mono text-xl font-bold ${risk}`}>Risk Score: {result.score}/100</div>
+            {source && <div className="font-mono text-[11px] text-primary">{source.by === "gemini" ? "Analysed by Gemini" : `Analysed locally with built-in rules${source.why ? ` — ${source.why}` : ""}`}</div>}
             <div className="font-mono text-xs text-muted-foreground">{result.unenforceable} Unenforceable Clauses • £{result.illegalFees} in Illegal Fees Detected • {result.flags.length} flags in {result.clauses} clauses</div>
           </div>
           {result.flags.length === 0 ? <p className="text-sm text-muted-foreground">No red flags found. This contract looks consistent with the statutes we check — still read it carefully.</p> : (

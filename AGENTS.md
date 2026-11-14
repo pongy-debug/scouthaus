@@ -30,7 +30,8 @@ use the editor.
 <!-- LOVABLE:END -->
 
 ## HouseHunt
-- All data and contract analysis live client-side in src/lib/hh (no backend/APIs) — app must work offline.
+- Listing data lives client-side in src/lib/hh. Contract Scanner: uploads and pasted text go to Google Gemini through the `analyseContract` server function (src/lib/hh/gemini.ts), using the owner's own `GEMINI_API_KEY` secret (owner's decision — a deliberate exception to the Lovable gateway rule above; optional `GEMINI_MODEL`). Never call Gemini from browser code.
+- The scanner must keep working with no key or offline: it falls back to the local reader (src/lib/hh/pdf.ts: pdf.js text + tesseract OCR) and the rules in scanner.ts. Built-in samples always run locally.
 - Find House maps use MapLibre (OpenFreeMap positron vector tiles, fill-extrusion) in StreetMap, lazy-loaded on ssr:false routes; X-Ray map is still R3F (DurhamScene).
 - Find House areas/houses live in src/lib/hh/find.ts (CITIES); scenes place them with `project()` from real lat/lng — add cities there, not in components.
 - Route modules must not import scene modules (three.js) statically; shared helpers like overviewPos live in three-free files.

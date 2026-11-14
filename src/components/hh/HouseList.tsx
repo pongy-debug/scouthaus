@@ -41,7 +41,7 @@ export function HouseList({ groups, grouped, hoverId, selectedId, availableOnly,
                     <HouseThumb house={h} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">{h.name}</span>
-                      <span className="block truncate font-mono text-[11px] text-muted-foreground">{g.area.name} · £{h.rent} pppw · {bedsOf(h)}</span>
+                      <span className="block truncate font-mono text-[11px] text-muted-foreground">{h.locationNote ?? g.area.name} · £{h.rent} pppw · {h.propertyType === "studio" ? "Studio" : bedsOf(h)}</span>
                     </span>
                     <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${BADGE[h.availability]}`}>{AVAIL_LABEL[h.availability]}</span>
                   </button>

@@ -5,7 +5,11 @@ export type Availability = "available" | "under-offer" | "let";
 
 export interface Area {
   id: string; name: string; postcode: string; lat: number; lng: number; active: boolean; note?: string;
+  /** Draw the area circle around this point instead of around the middle of its listings. */
+  fixedCentre?: boolean;
 }
+export type PropertyType = "house" | "studio";
+export const PROPERTY_TYPE_LABEL: Record<PropertyType, string> = { house: "Shared house", studio: "Studio in student building" };
 export interface House {
   id: string; name: string; landlord: string; address: string; area: string; postcode: string;
   lat: number; lng: number; availability: Availability; rent: number; bedrooms: number;
@@ -30,6 +34,12 @@ export interface House {
   telemetryStatus?: "unchecked";
   /** What has been verified by hand from public registers for a listing with no modelled X-ray. */
   checked?: Checked;
+  /** Defaults to a shared house. Studios are single rooms in a student building and count as 1 bedroom. */
+  propertyType?: PropertyType;
+  /** The advert's price terms when one figure is not the whole story (contract lengths, a price change). */
+  rentNote?: string;
+  /** Where the listing sits relative to its area, e.g. "West of the centre". */
+  locationNote?: string;
 }
 export interface Checked {
   /**
@@ -170,22 +180,30 @@ const NEWCASTLE_AREAS: Area[] = [
   { id: "jesmond", name: "Jesmond", postcode: "NE2", lat: 54.994, lng: -1.609, active: true },
   { id: "heaton", name: "Heaton", postcode: "NE6", lat: 54.983146, lng: -1.574495, active: true },
   { id: "sandyford", name: "Sandyford", postcode: "NE2", lat: 54.982211, lng: -1.600881, active: true },
-  { id: "newcastle-city-centre", name: "Newcastle City Centre", postcode: "NE1", lat: 54.9738, lng: -1.6132, active: false },
+  { id: "newcastle-city-centre", name: "Newcastle City Centre", postcode: "NE1", lat: 54.9738, lng: -1.6132, active: true },
+  { id: "chinatown", name: "Chinatown & St James'", postcode: "NE1/NE4", lat: 54.9718, lng: -1.6208, active: true, fixedCentre: true }, // centred on Stowell Street
   { id: "gateshead", name: "Gateshead", postcode: "NE8", lat: 54.962, lng: -1.601, active: false },
 ];
 
-// Hand-entered from the five adverts supplied by the owner; no listing scraping.
+// Hand-entered from the ten adverts supplied by the owner (five on 2026-11-14, five city-centre ones after); no listing scraping.
 // Coordinates are Postcodes.io postcode centres (looked up 2026-11-14), not verified building footprints.
 // `checked` was looked up by hand on 2026-11-14 and is the only X-ray data these adverts have:
 //  - crime: data.police.uk street-level reports within 1 mile of the pin, September 2026 (latest month published).
 //  - epc: find-energy-certificate.service.gov.uk by postcode. Lavender Gardens (bands B–E), Bayswater Road (C–E) and
 //    Tavistock Road (C–E) give no house number and their streets span several bands, so their EPC stays unchecked.
+//    The five city-centre adverts are unchecked too: Ridley Place, NE1 6SG and Westgate Road mix bands C and D with
+//    no house number, and neither Student Roost building could be matched to certificates at its postcode.
 const NEWCASTLE_CRIME_MONTH = "2026-09";
 const NEWCASTLE_CHECKS: Record<string, Checked> = {
   "newcastle-lavender": { crime: { count: 347, month: NEWCASTLE_CRIME_MONTH } },
   "newcastle-bayswater": { crime: { count: 328, month: NEWCASTLE_CRIME_MONTH } },
   "newcastle-tavistock": { crime: { count: 330, month: NEWCASTLE_CRIME_MONTH } },
   "newcastle-hartford": { crime: { count: 543, month: NEWCASTLE_CRIME_MONTH }, epc: { bands: ["B", "C"], source: "All 17 certificates at NE6 5BG are band B or C; the advert gives no house number." } },
+  "newcastle-ridley": { crime: { count: 1020, month: NEWCASTLE_CRIME_MONTH } },
+  "newcastle-city-centre": { crime: { count: 1118, month: NEWCASTLE_CRIME_MONTH } },
+  "newcastle-westgate": { crime: { count: 1036, month: NEWCASTLE_CRIME_MONTH } },
+  "newcastle-st-james-house": { crime: { count: 1052, month: NEWCASTLE_CRIME_MONTH } },
+  "newcastle-st-james-point": { crime: { count: 1036, month: NEWCASTLE_CRIME_MONTH } },
   "newcastle-lillico": { crime: { count: 1104, month: NEWCASTLE_CRIME_MONTH }, epc: { bands: ["E"], source: "Certificate for 1 Lillico House, Sandyford Road, valid until 13 March 2028." } },
 };
 const NEWCASTLE_HOUSES: House[] = [
@@ -194,6 +212,11 @@ const NEWCASTLE_HOUSES: House[] = [
   { id: "newcastle-tavistock", name: "Tavistock Road", address: "Tavistock Road", area: "jesmond", postcode: "NE2 3HY", lat: 54.995531, lng: -1.607205, rent: 156, bedrooms: 6, landlord: "Seekers", availableFrom: "2027-07-06", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/tavistock-road/432143?contract=633320", photos: ["https://public.sturents.com/photos/10062377.jpg", "https://public.sturents.com/photos/10062182.jpg"] },
   { id: "newcastle-hartford", name: "Hartford Court", address: "Hartford Court", area: "heaton", postcode: "NE6 5BG", lat: 54.983146, lng: -1.574495, rent: 121, bedrooms: 5, landlord: "Seekers", availableFrom: "2027-07-06", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/hartford-court/435380?contract=640985", photos: ["https://public.sturents.com/photos/10158589.jpg", "https://public.sturents.com/photos/10158607.jpg"] },
   { id: "newcastle-lillico", name: "1 Lillico House", address: "1 Lillico House, Sandyford Road", area: "sandyford", postcode: "NE2 1BN", lat: 54.982211, lng: -1.600881, rent: 161, bedrooms: 5, landlord: "Loc8me (Newcastle)", availableFrom: "2027-07-01", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/sandyford-road/426290?contract=615266", photos: ["https://public.sturents.com/photos/9929985.jpg", "https://public.sturents.com/photos/9929953.jpg"] },
+  { id: "newcastle-ridley", name: "Ridley Place", address: "Ridley Place", area: "newcastle-city-centre", postcode: "NE1 8JW", lat: 54.977053, lng: -1.612087, rent: 131, bedrooms: 6, landlord: "Ridley Properties", availableFrom: "2027-08-12", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/ridley-place/292978?contract=621739", photos: ["https://public.sturents.com/photos/9967034.jpg", "https://public.sturents.com/photos/9967022.jpg"] },
+  { id: "newcastle-city-centre", name: "City Centre (street not published)", address: "City Centre", area: "newcastle-city-centre", postcode: "NE1 6SG", lat: 54.97189, lng: -1.610527, rent: 141, bedrooms: 6, landlord: "Ridley Properties", availableFrom: "2027-12-01", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/city-centre/292981?contract=621736", photos: ["https://public.sturents.com/photos/9937258.jpg", "https://public.sturents.com/photos/9937246.jpg"], rentNote: "£141 pppw from 1 Dec 2027 (£135 pppw from 1 Dec 2026)" },
+  { id: "newcastle-westgate", name: "Westgate Road", address: "Westgate Road", area: "newcastle-city-centre", postcode: "NE4 6AD", lat: 54.971111, lng: -1.625718, rent: 116, bedrooms: 6, landlord: "Seekers", availableFrom: "2027-07-01", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/westgate-road/432112?contract=633276", photos: ["https://public.sturents.com/photos/10055730.jpg", "https://public.sturents.com/photos/10055750.jpg"], locationNote: "West of the centre" },
+  { id: "newcastle-st-james-house", name: "St James' House", address: "St James' House, St James Street", area: "chinatown", postcode: "NE1 4NF", lat: 54.975389, lng: -1.619914, rent: 235, bedrooms: 1, landlord: "Student Roost", availableFrom: "2027-09-05", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/studio-bronze-st-james-street/191496?contract=635624", photos: ["https://public.sturents.com/photos/7923011.png", "https://public.sturents.com/photos/6326232.jpg"], propertyType: "studio" as const, rentNote: "£235 pppw on a 51-week contract, or £245 pppw on 44 weeks" },
+  { id: "newcastle-st-james-point", name: "St James' Point", address: "St James' Point, Pitt Street", area: "chinatown", postcode: "NE4 5SU", lat: 54.974635, lng: -1.623358, rent: 183, bedrooms: 1, landlord: "Student Roost", availableFrom: "2027-09-05", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/studio-silver-pitt-street/191511?contract=635638", photos: ["https://public.sturents.com/photos/8518887.jpg", "https://public.sturents.com/photos/7595235.jpg"], propertyType: "studio" as const, rentNote: "£183 pppw on a 51-week contract, or £195 pppw on 44 weeks" },
 ].map((listing): House => ({
   ...listing, cityId: "newcastle", availability: "available", approximateLocation: true,
   photoCredit: `${listing.landlord} via StuRents`, telemetryStatus: "unchecked", ...(NEWCASTLE_CHECKS[listing.id] ? { checked: NEWCASTLE_CHECKS[listing.id]! } : {}),
@@ -248,7 +271,7 @@ export function areaCircle(city: City, a: Area): { lat: number; lng: number; r: 
   const hs = city.houses.filter((x) => x.area === a.id);
   if (!hs.length) return { lat: a.lat, lng: a.lng, r: 220 };
   const lats = hs.map((x) => x.lat), lngs = hs.map((x) => x.lng);
-  const lat = (Math.min(...lats) + Math.max(...lats)) / 2, lng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+  const lat = a.fixedCentre ? a.lat : (Math.min(...lats) + Math.max(...lats)) / 2, lng = a.fixedCentre ? a.lng : (Math.min(...lngs) + Math.max(...lngs)) / 2;
   const r = Math.max(...hs.map((x) => { const [dx, dz] = project(x.lat, x.lng, { lat, lng }, 1000); return Math.hypot(dx, dz); }));
   return { lat, lng, r: Math.max(city.id === "newcastle" ? 220 : 0, Math.round(r + 45)) };
 }
@@ -339,11 +362,14 @@ export function trueMonthlyCost(hs: House) {
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
-export interface Filters { maxRent: number; minBeds: number; maxBeds: number; epc: "any" | "C" | "D"; availability: "all" | Availability }
+export interface Filters { maxRent: number; minBeds: number; maxBeds: number; epc: "any" | "C" | "D"; availability: "all" | Availability; type: "all" | PropertyType }
+export const typeOf = (hs: House): PropertyType => hs.propertyType ?? "house";
+/** Property types present in a city; the type filter is only worth showing when there is more than one. */
+export const propertyTypes = (city: City): PropertyType[] => (["house", "studio"] as const).filter((t) => city.houses.some((h) => typeOf(h) === t));
 export const rentRange = (city: City) => ({ min: Math.min(...city.houses.map((x) => x.rent)), max: Math.max(...city.houses.map((x) => x.rent)) });
 /** Smallest and largest bedroom count among the loaded listings. */
 export const bedRange = (city: City) => ({ min: Math.min(...city.houses.map((x) => x.bedrooms)), max: Math.max(...city.houses.map((x) => x.bedrooms)) });
-export const defaultFilters = (city: City): Filters => ({ maxRent: rentRange(city).max, minBeds: bedRange(city).min, maxBeds: bedRange(city).max, epc: "any", availability: "all" });
+export const defaultFilters = (city: City): Filters => ({ maxRent: rentRange(city).max, minBeds: bedRange(city).min, maxBeds: bedRange(city).max, epc: "any", availability: "all", type: "all" });
 /** "Any" for the full range, otherwise "4–6" or "5". */
 export function bedsLabel(f: Pick<Filters, "minBeds" | "maxBeds">, range: { min: number; max: number }) {
   if (f.minBeds <= range.min && f.maxBeds >= range.max) return "Any";
@@ -351,7 +377,7 @@ export function bedsLabel(f: Pick<Filters, "minBeds" | "maxBeds">, range: { min:
 }
 export function applyFilters(hs: House[], f: Filters) {
   return hs.filter((x) => x.rent <= f.maxRent && x.bedrooms >= f.minBeds && x.bedrooms <= f.maxBeds && (f.epc === "any" || (epcWorst(x) ?? "Z") <= f.epc)
-    && (f.availability === "all" || x.availability === f.availability));
+    && (f.availability === "all" || x.availability === f.availability) && (f.type === "all" || typeOf(x) === f.type));
 }
 
 export const AVAIL_LABEL: Record<Availability, string> = { available: "Available", "under-offer": "Reserved", let: "Taken" };

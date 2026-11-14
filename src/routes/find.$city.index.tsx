@@ -15,7 +15,7 @@ import { AskMap } from "@/components/hh/AskMap";
 import { BedRange } from "@/components/hh/BedRange";
 import type { MapAction } from "@/lib/hh/assistant";
 import { overviewPos } from "@/components/hh/overviewPos";
-import { AVAIL_LABEL, CITIES, RISK_LAYERS, applyFilters, bedRange, defaultFilters, findCity, legendFor, project, rentRange, type Availability, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { AVAIL_LABEL, CITIES, RISK_LAYERS, applyFilters, bedRange, defaultFilters, findCity, legendFor, project, propertyTypes, rentRange, type Availability, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
 
 const StreetMap = lazy(() => import("@/components/hh/StreetMap"));
 
@@ -125,6 +125,13 @@ function CityMap({ cityId }: { cityId: string }) {
           <span className="w-16 font-mono text-foreground">£{filters.maxRent} pppw</span>
         </label>
         <BedRange min={beds.min} max={beds.max} value={[filters.minBeds, filters.maxBeds]} onChange={([lo, hi]) => setFilters((f) => ({ ...f, minBeds: lo, maxBeds: hi }))} />
+        {propertyTypes(city).length > 1 && (
+          <label className="flex items-center gap-2">Property type
+            <select className={field} value={filters.type} onChange={(e) => set("type", e.target.value as Filters["type"])}>
+              <option value="all">All</option><option value="house">Shared house</option><option value="studio">Studio</option>
+            </select>
+          </label>
+        )}
         <label className="flex items-center gap-2">EPC
           <select className={field} value={filters.epc} onChange={(e) => set("epc", e.target.value as Filters["epc"])}>
             <option value="any">Any</option><option value="C">C or better</option><option value="D">D or better</option>

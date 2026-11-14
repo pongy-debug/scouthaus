@@ -18,6 +18,7 @@ function describe(a: MapAction, prev: AskMapState, areas: Area[], houses: House[
   if (f.minBeds !== p.minBeds || f.maxBeds !== p.maxBeds) { const b = bedsLabel(f, beds); out.push(b === "Any" ? "Any bedrooms" : `${b} bedrooms`); }
   if (f.epc !== p.epc) out.push(f.epc === "any" ? "Any EPC" : `EPC ${f.epc} or better`);
   if (f.availability !== p.availability) out.push(f.availability === "all" ? "Any availability" : `${AVAIL_LABEL[f.availability]} only`);
+  if (f.type !== p.type) out.push(f.type === "all" ? "Any property type" : f.type === "studio" ? "Studios only" : "Shared houses only");
   if (a.layer !== prev.layer) out.push(`Layer: ${RISK_LAYERS.find((l) => l.id === a.layer)!.label}`);
   const h = a.houseId ? houses.find((x) => x.id === a.houseId) : undefined;
   if (h) { if (h.id !== prev.selectedId) out.push(`Flew to ${h.name}`); }

@@ -6,8 +6,8 @@ import { z } from "zod";
 import { toResult, type Flag, type ScanResult } from "./scanner";
 
 const MAX_FILE_B64 = 14_000_000; // ≈10 MB file; Gemini inline requests are capped at 20 MB
-const DEFAULT_MODEL = "gemini-3.8-flash"; // override with the GEMINI_MODEL secret
-const FALLBACK_MODEL = "gemini-3.6-flash"; // must be a model ID listed at ai.google.dev/gemini-api/docs/models
+const DEFAULT_MODEL = "gemini-3.6-flash"; // override with the GEMINI_MODEL secret
+const FALLBACK_MODEL = "gemini-2.5-flash"; // must be a model ID listed at ai.google.dev/gemini-api/docs/models
 const PRIMARY_TIMEOUT_MS = 90_000;
 const HEDGE_AFTER_MS = 12_000;
 const FALLBACK_TIMEOUT_MS = 120_000;
@@ -68,7 +68,7 @@ export type AiScan =
   | { ok: false; reason: "no-key" | "failed"; message: string };
 
 export const analyseContract = createServerFn({ method: "POST" })
-  .validator((d: unknown) => Input.parse(d))
+  .inputValidator((d: unknown) => Input.parse(d))
   .handler(async ({ data }): Promise<AiScan> => {
     const key = process.env["GEMINI_API_KEY"];
     if (!key) return { ok: false, reason: "no-key", message: "GEMINI_API_KEY is not set" };

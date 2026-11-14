@@ -4,9 +4,9 @@ import { CITIES, applyFilters, bedRange, defaultFilters } from "./find";
 
 const city = CITIES[0]!;
 const beds = bedRange(city);
-type Change = "rent" | "bedrooms" | "epc" | "availability" | "layer";
-const ALL: Change[] = ["rent", "bedrooms", "epc", "availability", "layer"];
-const base = { clarify: false, changes: ALL, maxRent: 150, minBeds: 4, maxBeds: beds.max, epc: "any", availability: "available", layer: "crime", areaId: "stay", sortBy: "noise", open: "best", houseId: "none", lead: "Done." } as const;
+type Change = "rent" | "bedrooms" | "epc" | "availability" | "type" | "layer";
+const ALL: Change[] = ["rent", "bedrooms", "epc", "availability", "type", "layer"];
+const base = { clarify: false, changes: ALL, maxRent: 150, minBeds: 4, maxBeds: beds.max, epc: "any", availability: "available", type: "all", layer: "crime", areaId: "stay", sortBy: "noise", open: "best", houseId: "none", lead: "Done." } as const;
 
 describe("ask-the-map grounding", () => {
   it("opens the best house that really satisfies the filters", () => {

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { FileSearch, House, Zap } from "lucide-react";
 import { SiteLogo } from "@/components/hh/SiteNav";
+import { resetSpaceFlight, startSpaceFlight, useSpacePhase } from "@/lib/hh/transition";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -39,8 +40,32 @@ function Landing() {
     return () => observer.disconnect();
   }, []);
 
+  const nav = useNavigate();
+  const router = useRouter();
+  const phase = useSpacePhase();
+  const leaving = phase !== "idle";
+  // The page shrinks toward the centre of the screen, wherever it is scrolled to.
+  const [origin, setOrigin] = useState("50% 50vh");
+  useEffect(() => {
+    // Showing the home page (first visit or back button) always starts from the normal state.
+    resetSpaceFlight();
+    // Get the Find House page and its 3D Earth ready before the click, so the fly-out never waits on the network.
+    void router?.preloadRoute?.({ to: "/find" })?.catch(() => {});
+    void import("@/components/hh/CityGlobe").catch(() => {});
+    for (const src of ["/textures/earth-day.jpg", "/textures/earth-clouds.png"]) new Image().src = src;
+  }, [router]);
+  /** Find House: fly out to the Earth instead of switching pages. Modified clicks (new tab etc.) keep their normal behaviour. */
+  const flyToFind = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setOrigin(`50% ${(scrollRef.current?.clientHeight || window.innerHeight) / 2}px`);
+    startSpaceFlight({ reduced, navigate: () => nav({ to: "/find" }) });
+  };
+  const block = (e: MouseEvent<HTMLAnchorElement>) => { if (leaving) e.preventDefault(); };
+  const off = leaving ? { "aria-disabled": true, tabIndex: -1 } : {};
   return (
-    <div ref={scrollRef} className="scout-home min-h-screen">
+    <div ref={scrollRef} className={`scout-home min-h-screen ${phase === "shrink" || phase === "black" ? "home-leaving" : ""}`} style={leaving ? { transformOrigin: origin } : undefined}>
       <header className="absolute inset-x-3 top-3 z-20 flex flex-wrap items-center gap-2 border border-transparent px-4 py-2.5">
         <SiteLogo />
       </header>
@@ -57,6 +82,7 @@ function Landing() {
           </svg>
           <HomeCity side="left" />
           <HomeCity side="right" />
+          <div className="home-intro-content">
           <div className="home-eyebrow"><span className="size-1.5 rounded-full bg-[var(--home-blue)]" /> A clearer view of student living</div>
           <h1 id="home-heading" aria-label="Scouthaus" className="mt-6 text-[clamp(3.6rem,8vw,6rem)] font-extrabold leading-[0.98] tracking-[-0.075em]">
             <span aria-hidden="true">{Array.from("Scouthaus").map((letter, index) => <span key={index} className={`home-title-letter ${index >= 5 ? "text-[var(--home-blue)]" : "text-[var(--home-ink)]"}`} style={{ animationDelay: `calc(var(--home-letter-start) + ${index} * var(--home-letter-step))` }}>{letter}</span>)}<span className="home-title-dot"><span className="home-title-dot-rest">.</span><svg className="home-title-star" viewBox="-50 -50 100 100" focusable="false"><defs><linearGradient id="home-title-star-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#f4fbff" /><stop offset="0.55" stopColor="#cae9f6" /><stop offset="1" stopColor="#7dbdd8" /></linearGradient></defs><path d="M0-47 11-15 45-15 18 6 28 39 0 20-28 39-18 6-45-15-11-15Z" fill="url(#home-title-star-fill)" stroke="#e4f7ff" strokeWidth="0.8" /></svg></span></span>
@@ -64,11 +90,12 @@ function Landing() {
           <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Your next home. The full picture.</h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[var(--home-muted)] sm:text-base">Look beyond the listing. Explore Durham, uncover hidden costs, and understand your contract before you sign.</p>
         <nav aria-label="Main navigation" className="mt-8 grid w-full max-w-[480px] grid-cols-2 items-center gap-3 sm:gap-4">
-          <Link to="/find" className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><House className="size-4 sm:size-5" />Find House</Link>
-          <Link to="/scanner" className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><FileSearch className="size-4 sm:size-5" />Contract Scanner</Link>
+          <Link to="/find" onClick={flyToFind} {...off} className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><House className="size-4 sm:size-5" />Find House</Link>
+          <Link to="/scanner" onClick={block} {...off} className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><FileSearch className="size-4 sm:size-5" />Contract Check</Link>
         </nav>
 
           <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--home-muted)]">Your next home, with fewer surprises.</p>
+          </div>
           <a href="#neighbourhood" className="home-scroll-hint rounded-full px-4 py-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">Scroll to explore <span aria-hidden="true">↓</span></a>
 
         </section>
@@ -77,7 +104,7 @@ function Landing() {
           <div className="home-explorer-inner">
           <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
             <div><p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">A new perspective on your neighbourhood</p></div>
-            <span className="rounded-full border border-sky-300/25 bg-sky-400/10 px-3 py-1.5 font-mono text-[10px] text-sky-200">Illustrative preview · demo listings</span>
+            <span className="rounded-full border border-sky-300/25 bg-sky-400/10 px-3 py-1.5 font-mono text-[10px] text-sky-200">Illustrative preview · real adverts, modelled risk</span>
           </div>
           <div className="home-neighbourhood-grid relative grid items-center gap-6 md:grid-cols-[0.8fr_1.2fr]">
             <div className="home-story relative z-10 order-2 max-w-sm space-y-3 pb-4 md:order-1">
@@ -88,7 +115,7 @@ function Landing() {
                 { icon: House, title: "Know your surroundings", text: "Neighbourhoods, damp risk & noise", color: "text-orange-300", surface: "border-orange-300/30 from-orange-400/10" },
               ].map(({ icon: Icon, title, text, color, surface }) => <div key={title} className={`rounded-xl border bg-gradient-to-br to-slate-950/70 p-5 ${surface}`}><div className="flex items-center gap-3"><Icon className={`size-5 shrink-0 ${color}`} /><h4 className="text-base font-bold text-slate-100">{title}</h4></div><p className="mt-3 text-xs leading-relaxed text-slate-400">{text}</p></div>)}
               <section aria-labelledby="home-scanner-heading" className="rounded-xl border border-violet-300/30 bg-gradient-to-br from-violet-400/10 to-slate-950/70 p-5">
-                <div className="flex items-center gap-3"><FileSearch className="size-5 shrink-0 text-violet-300" /><h4 id="home-scanner-heading" className="text-base font-bold text-slate-100">Contract Scanner</h4></div>
+                <div className="flex items-center gap-3"><FileSearch className="size-5 shrink-0 text-violet-300" /><h4 id="home-scanner-heading" className="text-base font-bold text-slate-100">Contract Check</h4></div>
                 <p className="mt-3 text-sm font-semibold text-violet-100">Love the house? Check the contract.</p>
                 <p className="mt-2 text-xs leading-relaxed text-slate-400">Spot potential red flags, understand key terms, and prepare questions before you sign.</p>
                 <p className="mt-3 text-[10px] leading-relaxed text-violet-200/80">Upload contract → Review clauses → Draft landlord questions</p>
@@ -145,10 +172,9 @@ function Landing() {
           </div>
           <div className="relative z-10 flex flex-wrap justify-between gap-2 border-t border-white/10 pt-4 font-mono text-[9px] uppercase tracking-[0.12em] text-slate-400"><span>Explore areas. Compare houses. Read the fine print.</span><span className="text-sky-300">Built for better decisions ↗</span></div>
           </div>
-      <footer className="home-footer flex flex-wrap justify-between gap-3 border-t border-white/10 px-5 py-6 text-[10px] leading-relaxed text-slate-400 sm:px-8"><span>Scouthaus · A little more clarity before you get the keys.</span><span>Fictional demo listings · Educational guidance, not legal advice.</span></footer>
+      <footer className="home-footer flex flex-wrap justify-between gap-3 border-t border-white/10 px-5 py-6 text-[10px] leading-relaxed text-slate-400 sm:px-8"><span>Scouthaus · A little more clarity before you get the keys.</span><span>Listings from letting agents’ adverts · Risk figures are modelled · Educational guidance, not legal advice.</span></footer>
         </section>
       </main>
-
     </div>
   );
 }

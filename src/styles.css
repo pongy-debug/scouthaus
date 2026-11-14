@@ -9,6 +9,45 @@
 @source "../src";
 @import "tw-animate-css";
 
+.city-picker {
+  background: radial-gradient(ellipse at center, oklch(0.22 0.045 250), oklch(0.1 0.015 260) 75%);
+}
+.city-globe-stage {
+  inset: -10%;
+  transform-origin: center;
+  transition: transform 1.9s cubic-bezier(0.55, 0.05, 0.8, 0.5) 0.2s;
+  will-change: transform;
+}
+.city-picker-entering .city-globe-stage { transform: scale(4.2); }
+.city-globe-shade {
+  background: linear-gradient(90deg, oklch(0.1 0.015 260 / 0.55), transparent 80%), linear-gradient(0deg, oklch(0.1 0.015 260), transparent 30%);
+}
+.city-picker-panel {
+  transition: opacity 0.25s ease, transform 0.4s ease;
+}
+.city-picker-entering .city-picker-panel {
+  opacity: 0;
+  transform: translateY(24px) scale(0.96);
+  pointer-events: none;
+}
+.city-globe-fallback {
+  position: absolute;
+  width: min(85vw, 850px);
+  aspect-ratio: 1;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: url('/textures/earth-day.jpg') center / auto 100%;
+  box-shadow: inset 100px -30px 110px 35px oklch(0.05 0.01 260), inset -10px 0 35px oklch(0.7 0.09 240 / 0.5), 0 0 45px oklch(0.6 0.1 240 / 0.12);
+  animation: city-earth-turn 52s linear infinite;
+}
+.city-picker-entering .city-globe-fallback { animation-play-state: paused; }
+@keyframes city-earth-turn { to { background-position: 200% center; } }
+@media (max-width: 640px) {
+  .city-globe-stage { left: -50%; right: -50%; top: -10%; bottom: -10%; }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -165,6 +204,19 @@
 .home-scroll-hint { position: absolute; bottom: 42px; z-index: 1; display: flex; align-items: center; gap: 12px; color: var(--home-muted); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 @keyframes home-twinkle { 0%, 100% { opacity: 0.12; } 50% { opacity: 0.65; } }
 @media (prefers-reduced-motion: reduce) { .home-star { animation: none; opacity: 0.3; } }
+/* Find House transition: the whole home page shrinks away to nothing over pure black; a black root overlay then covers the route change. */
+.home-intro-content { display: flex; width: 100%; flex-direction: column; align-items: center; }
+.home-leaving { pointer-events: none; will-change: transform; animation: home-shrink 1200ms cubic-bezier(0.7, 0, 0.84, 0) forwards; }
+html.space-lock { overflow: hidden; }
+html.space-lock, html.space-lock body { background: #000; }
+@keyframes home-shrink { to { transform: scale(0); } }
+.space-fx { position: fixed; inset: 0; z-index: 100; background: #000; }
+.space-fadein { pointer-events: none; animation: space-out 2000ms ease forwards; }
+.space-fade { animation: space-in 150ms ease both; }
+.space-fadeout { pointer-events: none; animation: space-out 150ms ease forwards; }
+@keyframes space-in { from { opacity: 0; } }
+@keyframes space-out { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .home-leaving { animation: none; } }
 .home-explorer { scroll-snap-align: start; scroll-snap-stop: always; display: flex; flex-direction: column; min-height: 100svh; align-items: center; background: linear-gradient(to bottom, var(--home-transition), transparent 220px), radial-gradient(ellipse at 80% 45%, oklch(0.36 0.09 235 / 0.45), transparent 65%), linear-gradient(to bottom, var(--home-transition), oklch(0.15 0.035 260)); }
 .home-explorer-inner { display: flex; flex: 1; flex-direction: column; justify-content: center; width: 100%; max-width: 1440px; margin: 0 auto; padding: clamp(24px, 3vw, 40px) clamp(20px, 5vw, 80px); }
 .home-neighbourhood-grid { min-height: 380px; }
@@ -177,22 +229,22 @@
 /* Entrance animations stay on the home screen and never change layout. */
 @media (prefers-reduced-motion: no-preference) {
   .scout-home > header { animation: home-enter 650ms cubic-bezier(0.22, 1, 0.36, 1) 50ms backwards; }
-  .home-intro > .home-eyebrow,
-  .home-intro > h1,
-  .home-intro > h2,
-  .home-intro > p,
-  .home-intro > nav { animation: home-enter 850ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-  .home-intro > .home-eyebrow { animation-delay: 120ms; }
-  .home-intro > h1 { animation-delay: 220ms; }
-  .home-intro > h2 { animation-delay: 340ms; }
-  .home-intro > p { animation-delay: 440ms; }
-  .home-intro > nav { animation-delay: 560ms; }
-  .home-intro > nav + p { animation-delay: 680ms; }
+  .home-intro-content > .home-eyebrow,
+  .home-intro-content > h1,
+  .home-intro-content > h2,
+  .home-intro-content > p,
+  .home-intro-content > nav { animation: home-enter 850ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+  .home-intro-content > .home-eyebrow { animation-delay: 120ms; }
+  .home-intro-content > h1 { animation-delay: 220ms; }
+  .home-intro-content > h2 { animation-delay: 340ms; }
+  .home-intro-content > p { animation-delay: 440ms; }
+  .home-intro-content > nav { animation-delay: 560ms; }
+  .home-intro-content > nav + p { animation-delay: 680ms; }
   .home-starlight { animation: home-stars-arrive 1800ms ease-out backwards; }
   .home-scroll-hint { animation: home-enter 800ms ease-out 1000ms backwards; }
   .home-scroll-hint > span { animation: home-scroll-nudge 2200ms ease-in-out 1800ms 3; }
   .scout-home > header:focus-within,
-  .home-intro > nav:focus-within,
+  .home-intro-content > nav:focus-within,
   .home-scroll-hint:focus-visible { animation: none; }
   .home-action { transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease; }
   .home-action:hover { transform: translateY(-2px); box-shadow: 0 6px 22px oklch(0.72 0.13 215 / 0.1); }

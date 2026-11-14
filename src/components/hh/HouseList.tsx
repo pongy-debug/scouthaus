@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { ExternalLink } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { HouseThumb } from "@/components/hh/HousePhoto";
-import { AVAIL_LABEL, advertUrl, type Area, type Availability, type House } from "@/lib/hh/find";
+import { AVAIL_LABEL, advertUrl, bedsOf, type Area, type Availability, type House } from "@/lib/hh/find";
 
 const BADGE: Record<Availability, string> = {
   available: "border-success/50 bg-success/15 text-success",
@@ -41,7 +41,7 @@ export function HouseList({ groups, grouped, hoverId, selectedId, availableOnly,
                     <HouseThumb house={h} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">{h.name}</span>
-                      <span className="block truncate font-mono text-[11px] text-muted-foreground">{g.area.name} · £{h.rent} pppw · {h.bedrooms} bed</span>
+                      <span className="block truncate font-mono text-[11px] text-muted-foreground">{h.locationNote ?? g.area.name} · £{h.rent} pppw · {h.propertyType === "studio" ? "Studio" : bedsOf(h)}</span>
                     </span>
                     <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${BADGE[h.availability]}`}>{AVAIL_LABEL[h.availability]}</span>
                   </button>

@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AVAIL_LABEL, needsHmoLicence, trueMonthlyCost, type Area, type House } from "@/lib/hh/find";
+import { AVAIL_LABEL, hasTelemetry, needsHmoLicence, riskLabel, trueMonthlyCost, type Area, type House } from "@/lib/hh/find";
 
 export const MAX_COMPARE = 3;
 
@@ -13,7 +13,7 @@ export function CompareDialog({ open, onOpenChange, houses, areas, onRemove }: {
     ["Availability", (h) => AVAIL_LABEL[h.availability]],
     ["Rent", (h) => `£${h.rent} pppw`],
     ["True monthly cost", (h) => `£${trueMonthlyCost(h).total}/mo pp`],
-    ["Bedrooms", (h) => h.bedrooms],
+    ["Bedrooms", (h) => h.bedroomsNote ?? h.bedrooms],
     ["EPC", (h) => `${h.xray.epc} (${h.xray.epcScore}/100)`],
     ["Winter heating bill", (h) => `£${h.xray.bill}/mo`],
     ["HMO licence", (h) => (needsHmoLicence(h) ? "Mandatory licence needed" : "No mandatory licence")],
@@ -47,7 +47,7 @@ export function CompareDialog({ open, onOpenChange, houses, areas, onRemove }: {
                 {rows.map(([label, cell]) => (
                   <tr key={label} className="border-b border-border/60">
                     <td className="py-2 pr-3 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</td>
-                    {houses.map((h) => <td key={h.id} className="py-2 pr-3 font-mono text-xs">{cell(h)}</td>)}
+                    {houses.map((h) => <td key={h.id} className="py-2 pr-3 font-mono text-xs">{hasTelemetry(h) ? cell(h) : label === "EPC" ? riskLabel(h, "epc") : label === "Noise" ? riskLabel(h, "crime") : ["True monthly cost", "Winter heating bill", "Damp risk", "Rent vs area median"].includes(label) ? "Not checked yet" : cell(h)}</td>)}
                   </tr>
                 ))}
               </tbody>

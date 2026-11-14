@@ -1,5 +1,5 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ChevronDown, ChevronUp, GitCompareArrows } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,11 @@ import { AskMap } from "@/components/hh/AskMap";
 import { BedRange } from "@/components/hh/BedRange";
 import type { MapAction } from "@/lib/hh/assistant";
 import { overviewPos } from "@/components/hh/overviewPos";
-import { AVAIL_LABEL, CITIES, RISK_LAYERS, applyFilters, bedRange, defaultFilters, findCity, project, rentRange, type Availability, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { AVAIL_LABEL, CITIES, RISK_LAYERS, applyFilters, bedRange, defaultFilters, findCity, legendFor, project, propertyTypes, rentRange, type Availability, type Filters, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
 
 const StreetMap = lazy(() => import("@/components/hh/StreetMap"));
 
-const RISK_CLS: Record<Risk, string> = { low: "bg-success", med: "bg-warning", high: "bg-destructive" };
+const RISK_CLS: Record<Risk, string> = { low: "bg-success", med: "bg-warning", high: "bg-destructive", unknown: "bg-slate-500" };
 const field = "rounded-md border border-input bg-background px-2 py-1 font-mono text-xs outline-none focus:border-primary";
 
 export const Route = createFileRoute("/find/$city/")({
@@ -42,6 +42,10 @@ export const Route = createFileRoute("/find/$city/")({
 
 function FindMap() {
   const { cityId } = Route.useLoaderData();
+  return <CityMap key={cityId} cityId={cityId} />;
+}
+
+function CityMap({ cityId }: { cityId: string }) {
   const city = CITIES.find((c) => c.id === cityId)!;
   const search = Route.useSearch();
   const nav = Route.useNavigate();
@@ -56,6 +60,18 @@ function FindMap() {
   const [listOpen, setListOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
   const [pinned, setPinned] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
+  const areaId = area?.id ?? null;
+  const previousAreaId = useRef(areaId);
+
+  // Breadcrumbs and browser Back also return to the overview without using the button.
+  useEffect(() => {
+    if (previousAreaId.current !== null && areaId === null) {
+      setSelectedId(null);
+      setHoverId(null);
+      setListOpen(true);
+    }
+    previousAreaId.current = areaId;
+  }, [areaId]);
 
   const houses = applyFilters(city.houses, filters);
   const selected = houses.find((h) => h.id === selectedId) ?? null;
@@ -63,7 +79,7 @@ function FindMap() {
   const listed = groups.reduce((n, g) => n + g.houses.length, 0);
   const rents = rentRange(city);
   const beds = bedRange(city);
-  const legend = RISK_LAYERS.find((l) => l.id === layer)!.legend;
+  const legend = legendFor(city, layer);
   // The list and the X-Ray share one slot, so an open drawer always collapses the list.
   const showList = listOpen && !selected;
 
@@ -95,7 +111,7 @@ function FindMap() {
     <div className="flex min-h-screen flex-col gap-3 p-3 lg:h-screen">
       <SiteNav />
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <Crumbs items={area
+        <Crumbs demo={city.id === "durham"} items={area
           ? [{ label: "Home", to: "/" }, { label: "Find House", to: "/find" }, { label: city.name, to: "/find/$city", params: { city: city.id } }, { label: area.name }]
           : [{ label: "Home", to: "/" }, { label: "Find House", to: "/find" }, { label: city.name }]} />
         {area
@@ -109,10 +125,18 @@ function FindMap() {
           <span className="w-16 font-mono text-foreground">£{filters.maxRent} pppw</span>
         </label>
         <BedRange min={beds.min} max={beds.max} value={[filters.minBeds, filters.maxBeds]} onChange={([lo, hi]) => setFilters((f) => ({ ...f, minBeds: lo, maxBeds: hi }))} />
+        {propertyTypes(city).length > 1 && (
+          <label className="flex items-center gap-2">Property type
+            <select className={field} value={filters.type} onChange={(e) => set("type", e.target.value as Filters["type"])}>
+              <option value="all">All</option><option value="house">Shared house</option><option value="studio">Studio</option>
+            </select>
+          </label>
+        )}
         <label className="flex items-center gap-2">EPC
           <select className={field} value={filters.epc} onChange={(e) => set("epc", e.target.value as Filters["epc"])}>
             <option value="any">Any</option><option value="C">C or better</option><option value="D">D or better</option>
           </select>
+          {city.id === "newcastle" && filters.epc !== "any" && <span>Unverified EPCs are excluded</span>}
         </label>
         <label className="flex items-center gap-2">Availability
           <select className={field} value={filters.availability} onChange={(e) => set("availability", e.target.value as Filters["availability"])}>
@@ -127,7 +151,7 @@ function FindMap() {
         {gl === false ? (
           <MapFallback points={area
             ? houses.filter((h) => h.area === area.id).map((h) => { const [x, z] = project(h.lat, h.lng, area, 40); return { id: h.id, x, z, label: h.name, tone: h.availability === "available" ? "success" : h.availability === "let" ? "muted" : "warning", onClick: () => openHouse(h) }; })
-            : city.areas.map((a) => { const [x, z] = overviewPos(city, a); return { id: a.id, x, z, label: `${a.name} · ${a.postcode}`, tone: a.active ? "primary" : "muted", onClick: a.active ? () => pickArea(a.id) : undefined }; })} />
+            : city.areas.map((a) => { const [x, z] = overviewPos(city, a); return { id: a.id, x, z, label: `${a.name} · ${a.postcode}${a.active ? "" : " · Coming soon"}`, tone: a.active ? "primary" : "muted", onClick: a.active ? () => pickArea(a.id) : undefined }; })} />
         ) : gl ? (
           <Suspense fallback={<Skeleton className="h-full w-full" />}>
             <StreetMap city={city} area={area} houses={houses} layer={layer} selectedId={selected?.id ?? null} hoverId={hoverId} onPickArea={pickArea} onOpen={openHouse} onHover={setHoverId} />

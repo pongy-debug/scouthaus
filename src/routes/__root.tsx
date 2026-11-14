@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { SpaceTransition } from "../components/hh/SpaceTransition";
 
 function NotFoundComponent() {
   return (
@@ -124,6 +125,8 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {/* Home → Find House fly-out; mounted here so it survives the route change. */}
+      <SpaceTransition />
       <Toaster theme="dark" position="bottom-center" />
     </QueryClientProvider>
   );

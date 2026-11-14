@@ -18,6 +18,7 @@ function describe(a: MapAction, prev: AskMapState, areas: Area[], houses: House[
   if (f.minBeds !== p.minBeds || f.maxBeds !== p.maxBeds) { const b = bedsLabel(f, beds); out.push(b === "Any" ? "Any bedrooms" : `${b} bedrooms`); }
   if (f.epc !== p.epc) out.push(f.epc === "any" ? "Any EPC" : `EPC ${f.epc} or better`);
   if (f.availability !== p.availability) out.push(f.availability === "all" ? "Any availability" : `${AVAIL_LABEL[f.availability]} only`);
+  if (f.type !== p.type) out.push(f.type === "all" ? "Any property type" : f.type === "studio" ? "Studios only" : "Shared houses only");
   if (a.layer !== prev.layer) out.push(`Layer: ${RISK_LAYERS.find((l) => l.id === a.layer)!.label}`);
   const h = a.houseId ? houses.find((x) => x.id === a.houseId) : undefined;
   if (h) { if (h.id !== prev.selectedId) out.push(`Flew to ${h.name}`); }
@@ -28,6 +29,7 @@ function describe(a: MapAction, prev: AskMapState, areas: Area[], houses: House[
 
 /** Floating "Ask the map" chat: every reply can update the filters, the risk layer and the camera. */
 export function AskMap({ cityId, areas, houses, state, onAction }: { cityId: string; areas: Area[]; houses: House[]; state: AskMapState; onAction: (a: MapAction) => void }) {
+  const suggestions = cityId === "newcastle" ? ["5 bed houses in Jesmond", "Show me Heaton under £130 a week", "Show houses in Sandyford"] : SUGGESTIONS;
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([HELLO]);
   const [draft, setDraft] = useState("");
@@ -75,7 +77,7 @@ export function AskMap({ cityId, areas, houses, state, onAction }: { cityId: str
             {busy && <div className="flex justify-start"><div className="rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground" role="status">Thinking…</div></div>}
             {msgs.length === 1 && !busy && (
               <div className="flex flex-col items-start gap-1 pt-1">
-                {SUGGESTIONS.map((s) => <button key={s} type="button" onClick={() => void send(s)} className="rounded-full border border-border px-2.5 py-1 text-left text-[11px] text-muted-foreground transition hover:border-primary hover:text-foreground">{s}</button>)}
+                {suggestions.map((s) => <button key={s} type="button" onClick={() => void send(s)} className="rounded-full border border-border px-2.5 py-1 text-left text-[11px] text-muted-foreground transition hover:border-primary hover:text-foreground">{s}</button>)}
               </div>
             )}
             <div ref={end} />
@@ -85,7 +87,7 @@ export function AskMap({ cityId, areas, houses, state, onAction }: { cityId: str
               className="min-w-0 flex-1 rounded-md border border-input bg-background/60 px-2 py-1.5 text-xs outline-none focus:border-primary" />
             <button type="submit" disabled={busy || !draft.trim()} aria-label="Send" className="rounded-md bg-primary p-1.5 text-primary-foreground disabled:opacity-40"><Send className="size-3.5" /></button>
           </form>
-          <p className="px-3 pb-2 text-[10px] text-muted-foreground">Messages go to Google Gemini. Answers use the demo listings only.</p>
+          <p className="px-3 pb-2 text-[10px] text-muted-foreground">Messages go to Google Gemini. Answers use this city's listed properties.</p>
         </section>
       )}
       <button type="button" aria-expanded={open} aria-label={open ? "Hide map assistant" : "Ask the map"} onClick={() => setOpen((o) => !o)}

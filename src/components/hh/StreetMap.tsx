@@ -1,11 +1,11 @@
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type MapGeoJSONFeature } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
-import { AVAIL_LABEL, advertUrl, areaCircle, areaStats, riskLabel, riskOf, type Area, type Availability, type City, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { AVAIL_LABEL, advertUrl, areaCircle, areaStats, bedsOf, riskLabel, riskOf, type Area, type Availability, type City, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
 
 // MapLibre paint needs concrete colours (mirrors design tokens)
 export const AVAIL_COLOR: Record<Availability, string> = { available: "#10B981", "under-offer": "#F59E0B", let: "#64748B" };
-export const RISK_COLOR: Record<Risk, string> = { low: "#10B981", med: "#F59E0B", high: "#EF4444" };
+export const RISK_COLOR: Record<Risk, string> = { low: "#10B981", med: "#F59E0B", high: "#EF4444", unknown: "#64748B" };
 const INDIGO = "#6366F1";
 const STYLE = "https://tiles.openfreemap.org/styles/positron";
 const PICK_PX = 15;
@@ -93,7 +93,7 @@ export default function StreetMap(props: StreetMapProps) {
     if (map.getZoom() < 15 || !map.getLayer("hh-buildings")) return;
     const bounds = map.getBounds(); let found = false;
     for (const h of propsRef.current.city.houses) {
-      if (footprints.current.has(h.id) || !bounds.contains([h.lng, h.lat])) continue;
+      if (h.approximateLocation || h.approximate || footprints.current.has(h.id) || !bounds.contains([h.lng, h.lat])) continue;
       const pt = map.project([h.lng, h.lat]);
       const hits = map.queryRenderedFeatures([[pt.x - 6, pt.y - 6], [pt.x + 6, pt.y + 6]], { layers: ["hh-buildings"] }).filter((f) => f.geometry.type === "Polygon");
       const hit = hits.find((f) => pointIn([h.lng, h.lat], (f.geometry as { coordinates: Poly }).coordinates[0]!)) ?? hits[0];
@@ -109,7 +109,7 @@ export default function StreetMap(props: StreetMapProps) {
     const start = p.area ? areaCircle(p.city, p.area) : null;
     const map = new maplibregl.Map({
       container: el.current!, style: STYLE, ...VIEW, maxPitch: 70, attributionControl: false,
-      center: start ? [start.lng, start.lat] : [p.city.center.lng, p.city.center.lat], zoom: start ? areaZoom(start.r) : OVERVIEW_ZOOM,
+      center: start ? [start.lng, start.lat] : [p.city.center.lng, p.city.center.lat], zoom: start ? areaZoom(start.r) : (p.city.overviewZoom ?? OVERVIEW_ZOOM),
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-left");
@@ -195,10 +195,11 @@ export default function StreetMap(props: StreetMapProps) {
           : <><div className="font-semibold">{hit.a.name}</div><div className="text-muted-foreground">Coming soon{hit.a.note ? ` · ${hit.a.note}` : ""}</div></> });
       } else if (h) {
         setTip({ x: e.point.x, y: e.point.y, html: <>
-          <div className="font-semibold">{h.name}</div><div className="text-muted-foreground">{h.landlord} — {h.address}</div>
-          <div className="mt-1 flex justify-between gap-3"><span style={{ color: AVAIL_COLOR[h.availability] }}>● {AVAIL_LABEL[h.availability]}</span><span>£{h.rent} pppw · {h.bedrooms} bed</span></div>
+          <div className="font-semibold">{h.name}</div><div className="text-muted-foreground">{h.landlord} — {h.address}{h.approximate && " · approximate location"}</div>
+          <div className="mt-1 flex justify-between gap-3"><span style={{ color: AVAIL_COLOR[h.availability] }}>● {AVAIL_LABEL[h.availability]}</span><span>£{h.rent} pppw · {bedsOf(h)}</span></div>
           <div style={{ color: RISK_COLOR[riskOf(h, P.layer)] }}>{riskLabel(h, P.layer)}</div>
-          <div className="text-primary">Click for X-Ray →</div></> });
+          {h.approximateLocation && <div>Approximate location · postcode centre</div>}
+          <div className="text-primary">Click for more info →</div></> });
       } else setTip(null);
     });
     map.on("click", (e) => {
@@ -231,7 +232,7 @@ export default function StreetMap(props: StreetMapProps) {
     if (sel && (selectedId !== prev.sel || areaChanged)) m.flyTo({ center: [sel.lng, sel.lat], zoom: Math.max(m.getZoom(), 17), ...VIEW, duration: 1400 });
     else if (areaChanged) {
       if (area) { const c = areaCircle(city, area); m.flyTo({ center: [c.lng, c.lat], zoom: areaZoom(c.r), ...VIEW, duration: 1600 }); }
-      else m.flyTo({ center: [city.center.lng, city.center.lat], zoom: OVERVIEW_ZOOM, ...VIEW, duration: 1400 });
+      else m.flyTo({ center: [city.center.lng, city.center.lat], zoom: city.overviewZoom ?? OVERVIEW_ZOOM, ...VIEW, duration: 1400 });
     }
   }, [area?.id, selectedId]);
 
@@ -247,7 +248,8 @@ export default function StreetMap(props: StreetMapProps) {
     if (!m || !loaded || !h) return;
     const tag = document.createElement("div");
     tag.className = "pointer-events-none whitespace-nowrap rounded-md border border-primary bg-popover px-2 py-1 font-mono text-[11px] text-popover-foreground shadow-lg";
-    tag.textContent = `${h.name} · £${h.rent} pppw · ${h.bedrooms} bed · ${AVAIL_LABEL[h.availability]}`;
+    tag.textContent = `${h.name} · £${h.rent} pppw · ${bedsOf(h)} · ${AVAIL_LABEL[h.availability]}`;
+    if (h.approximateLocation || h.approximate) tag.textContent += " · Approximate location";
     const url = advertUrl(h);
     if (url) {
       // Only listings with a real advert get a link; the tooltip becomes clickable for it.

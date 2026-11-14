@@ -8,7 +8,7 @@ import { Route as Scanner } from "@/routes/scanner";
 // The product is named Scouthaus: every page title must carry it and none may carry the old name.
 const titlesOf = (head: unknown, arg: unknown) =>
   ((head as (a: unknown) => { meta?: Record<string, string>[] })?.(arg)?.meta ?? [])
-    .map((m) => `${m.title ?? ""} ${m.content ?? ""}`)
+    .map((m) => `${m["title"] ?? ""} ${m["content"] ?? ""}`)
     .join(" | ");
 
 describe("Brand naming", () => {

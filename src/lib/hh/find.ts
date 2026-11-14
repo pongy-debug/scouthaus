@@ -15,8 +15,15 @@ export interface House {
   sourceUrl?: string;
   /** Photo URLs from that advert: main photo first, then up to 4 more. URLs only; images are never downloaded or re-hosted. */
   photos?: string[];
+  photoCredit?: string;
+  cityId?: string;
+  availableFrom?: string;
+  approximateLocation?: boolean;
+  /** Real adverts must never inherit the seeded Durham demo measurements. */
+  telemetryStatus?: "unchecked";
 }
-export interface City { id: string; name: string; center: { lat: number; lng: number }; areas: Area[]; houses: House[] }
+export interface Destination { name: string; lat: number; lng: number }
+export interface City { id: string; name: string; aliases?: string[]; center: { lat: number; lng: number }; overviewZoom?: number; areas: Area[]; houses: House[]; walkDestinations?: Destination[] }
 
 const DURHAM_AREAS: Area[] = [
   { id: "claypath", name: "Claypath", postcode: "DH1", lat: 54.7792, lng: -1.5712, active: true },
@@ -72,9 +79,43 @@ const DURHAM_HOUSES: House[] = [
   h("crossgate-margery", "Margery Lane", "Northern Key Estates", "6 Margery Lane", "crossgate", "DH1 4QG", 54.7733, -1.5815, "under-offer", 150, 3),
 ];
 
-export const CITIES: City[] = [
-  { id: "durham", name: "Durham", center: { lat: 54.7765, lng: -1.5745 }, areas: DURHAM_AREAS, houses: DURHAM_HOUSES },
+const NEWCASTLE_AREAS: Area[] = [
+  { id: "jesmond", name: "Jesmond", postcode: "NE2", lat: 54.994, lng: -1.609, active: true },
+  { id: "heaton", name: "Heaton", postcode: "NE6", lat: 54.983146, lng: -1.574495, active: true },
+  { id: "sandyford", name: "Sandyford", postcode: "NE2", lat: 54.982211, lng: -1.600881, active: true },
+  { id: "newcastle-city-centre", name: "Newcastle City Centre", postcode: "NE1", lat: 54.9738, lng: -1.6132, active: false },
+  { id: "gateshead", name: "Gateshead", postcode: "NE8", lat: 54.962, lng: -1.601, active: false },
 ];
+
+// Hand-entered from the five adverts supplied by the owner; no listing scraping.
+// Coordinates are Postcodes.io postcode centres (looked up 2026-11-14), not verified building footprints.
+const NEWCASTLE_HOUSES: House[] = [
+  { id: "newcastle-lavender", name: "Lavender Gardens", address: "Lavender Gardens", area: "jesmond", postcode: "NE2 3DE", lat: 54.991984, lng: -1.610662, rent: 166, bedrooms: 5, landlord: "Seekers", availableFrom: "2027-07-09", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/lavender-gardens/218809?contract=288227", photos: ["https://public.sturents.com/photos/8326030.jpg", "https://public.sturents.com/photos/8314329.jpg"] },
+  { id: "newcastle-bayswater", name: "Bayswater Road", address: "Bayswater Road", area: "jesmond", postcode: "NE2 3HP", lat: 54.994722, lng: -1.60962, rent: 166, bedrooms: 5, landlord: "Seekers", availableFrom: "2027-07-01", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/bayswater-road/218842?contract=288647", photos: ["https://public.sturents.com/photos/8371038.jpg", "https://public.sturents.com/photos/6438236.jpg"] },
+  { id: "newcastle-tavistock", name: "Tavistock Road", address: "Tavistock Road", area: "jesmond", postcode: "NE2 3HY", lat: 54.995531, lng: -1.607205, rent: 156, bedrooms: 6, landlord: "Seekers", availableFrom: "2027-07-06", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/tavistock-road/432143?contract=633320", photos: ["https://public.sturents.com/photos/10062377.jpg", "https://public.sturents.com/photos/10062182.jpg"] },
+  { id: "newcastle-hartford", name: "Hartford Court", address: "Hartford Court", area: "heaton", postcode: "NE6 5BG", lat: 54.983146, lng: -1.574495, rent: 121, bedrooms: 5, landlord: "Seekers", availableFrom: "2027-07-06", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/hartford-court/435380?contract=640985", photos: ["https://public.sturents.com/photos/10158589.jpg", "https://public.sturents.com/photos/10158607.jpg"] },
+  { id: "newcastle-lillico", name: "1 Lillico House", address: "1 Lillico House, Sandyford Road", area: "sandyford", postcode: "NE2 1BN", lat: 54.982211, lng: -1.600881, rent: 161, bedrooms: 5, landlord: "Loc8me (Newcastle)", availableFrom: "2027-07-01", sourceUrl: "https://sturents.com/student-accommodation/newcastle-upon-tyne/house/sandyford-road/426290?contract=615266", photos: ["https://public.sturents.com/photos/9929985.jpg", "https://public.sturents.com/photos/9929953.jpg"] },
+].map((listing): House => ({
+  ...listing, cityId: "newcastle", availability: "available", approximateLocation: true,
+  photoCredit: `${listing.landlord} via StuRents`, telemetryStatus: "unchecked",
+  // Unchecked numeric fields are internal placeholders, never displayed, ranked or classified as measurements.
+  xray: { id: listing.id, address: listing.address, postcode: listing.postcode, area: NEWCASTLE_AREAS.find((a) => a.id === listing.area)!.name,
+    tag: "Agent listing", epc: "G", epcScore: 0, bill: 0, billFactors: [], damp: 0, dampNote: "Not checked yet", noise: 0, rent: listing.rent, median: 0 },
+}));
+
+export const CITIES: City[] = [
+  { id: "durham", name: "Durham", center: { lat: 54.7765, lng: -1.5745 }, areas: DURHAM_AREAS, houses: DURHAM_HOUSES,
+    walkDestinations: [{ name: "Durham University Science Site", lat: 54.7645, lng: -1.578 }, { name: "Bill Bryson Library", lat: 54.7647, lng: -1.5788 }] },
+  { id: "newcastle", name: "Newcastle", aliases: ["Newcastle upon Tyne"], center: { lat: 54.9783, lng: -1.6178 }, overviewZoom: 12.4, areas: NEWCASTLE_AREAS, houses: NEWCASTLE_HOUSES,
+    walkDestinations: [{ name: "Newcastle University (King's Gate)", lat: 54.9803, lng: -1.6149 }, { name: "Northumbria University (City Campus)", lat: 54.9776, lng: -1.6073 }] },
+];
+
+export const hasTelemetry = (house: House) => house.telemetryStatus !== "unchecked";
+export const cityForHouse = (house: House) => CITIES.find((city) => city.id === (house.cityId ?? "durham"))!;
+export function estimatedWalkMinutes(house: House, destination: Destination) {
+  const [x, y] = project(house.lat, house.lng, destination, 1);
+  return Math.max(1, Math.round(Math.hypot(x, y) * 1.25 / 4.8 * 60));
+}
 
 export const LANDMARKS = [
   { name: "Durham Cathedral", lat: 54.7733, lng: -1.5763, kind: "cathedral" as const },
@@ -88,8 +129,8 @@ export const WEAR: [number, number][] = [
   [54.7705, -1.5765], [54.7740, -1.5770], [54.7770, -1.5765],
 ].slice(0, 10) as [number, number][];
 
-export const findCity = (q: string) => CITIES.find((c) => c.id === q.trim().toLowerCase() || c.name.toLowerCase() === q.trim().toLowerCase());
-export const suggestCities = (q: string) => !q.trim() ? CITIES : CITIES.filter((c) => c.name.toLowerCase().startsWith(q.trim().toLowerCase()));
+export const findCity = (q: string) => CITIES.find((c) => [c.id, c.name, ...(c.aliases ?? [])].some((name) => name.toLowerCase() === q.trim().toLowerCase()));
+export const suggestCities = (q: string) => CITIES.filter((c) => [c.name, ...(c.aliases ?? [])].some((name) => name.toLowerCase().startsWith(q.trim().toLowerCase())));
 
 /** Equirectangular projection: lat/lng → scene [x, z] in units, `perKm` units per km, around origin. */
 export function project(lat: number, lng: number, origin: { lat: number; lng: number }, perKm: number): [number, number] {
@@ -109,12 +150,12 @@ export function areaCircle(city: City, a: Area): { lat: number; lng: number; r: 
   const lats = hs.map((x) => x.lat), lngs = hs.map((x) => x.lng);
   const lat = (Math.min(...lats) + Math.max(...lats)) / 2, lng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
   const r = Math.max(...hs.map((x) => { const [dx, dz] = project(x.lat, x.lng, { lat, lng }, 1000); return Math.hypot(dx, dz); }));
-  return { lat, lng, r: Math.round(r + 45) };
+  return { lat, lng, r: Math.max(city.id === "newcastle" ? 220 : 0, Math.round(r + 45)) };
 }
 
 // ── Risk layers ──────────────────────────────────────────────────────────────
 export type RiskLayer = "all" | "epc" | "hmo" | "crime";
-export type Risk = "low" | "med" | "high";
+export type Risk = "low" | "med" | "high" | "unknown";
 export const RISK_LAYERS: { id: RiskLayer; label: string; legend: Partial<Record<Risk, string>> }[] = [
   { id: "all", label: "All Risks", legend: { low: "Lower risk", med: "Some risk", high: "Higher risk" } },
   { id: "epc", label: "EPC & Heating Cost", legend: { low: "EPC A–C", med: "EPC D", high: "EPC E–G" } },
@@ -126,6 +167,7 @@ export const RISK_LAYERS: { id: RiskLayer; label: string; legend: Partial<Record
 export const needsHmoLicence = (hs: House) => hs.bedrooms >= 5;
 
 export function riskOf(hs: House, layer: RiskLayer): Risk {
+  if (!hasTelemetry(hs)) return "unknown";
   const x = hs.xray;
   if (layer === "epc") return x.epcScore >= 69 ? "low" : x.epcScore >= 55 ? "med" : "high";
   if (layer === "hmo") return needsHmoLicence(hs) ? "med" : "low";
@@ -135,11 +177,12 @@ export function riskOf(hs: House, layer: RiskLayer): Risk {
 }
 
 export function riskLabel(hs: House, layer: RiskLayer): string {
+  if (!hasTelemetry(hs)) return layer === "hmo" ? "HMO licence: Not checked yet" : "Not checked yet";
   const x = hs.xray;
   if (layer === "epc") return `EPC ${x.epc} · £${x.bill}/mo heating`;
   if (layer === "hmo") return needsHmoLicence(hs) ? "HMO licence needed" : "No mandatory HMO licence";
   if (layer === "crime") return `Noise ${x.noise}/100`;
-  return { low: "Lower risk", med: "Some risk", high: "Higher risk" }[riskOf(hs, "all")];
+  return { low: "Lower risk", med: "Some risk", high: "Higher risk", unknown: "Not checked yet" }[riskOf(hs, "all")];
 }
 
 /** Per person, in winter: rent (pppw × 52 ÷ 12) plus an equal share of the predicted heating bill. */
@@ -160,7 +203,7 @@ export function bedsLabel(f: Pick<Filters, "minBeds" | "maxBeds">, range: { min:
   return f.minBeds === f.maxBeds ? `${f.minBeds}` : `${f.minBeds}–${f.maxBeds}`;
 }
 export function applyFilters(hs: House[], f: Filters) {
-  return hs.filter((x) => x.rent <= f.maxRent && x.bedrooms >= f.minBeds && x.bedrooms <= f.maxBeds && (f.epc === "any" || x.xray.epc <= f.epc)
+  return hs.filter((x) => x.rent <= f.maxRent && x.bedrooms >= f.minBeds && x.bedrooms <= f.maxBeds && (f.epc === "any" || (hasTelemetry(x) && x.xray.epc <= f.epc))
     && (f.availability === "all" || x.availability === f.availability));
 }
 

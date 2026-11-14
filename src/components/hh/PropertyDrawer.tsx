@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { CalendarCheck, ExternalLink, GitCompareArrows, Star, X } from "lucide-react";
 import { HouseGallery } from "@/components/hh/HousePhoto";
 import { Button } from "@/components/ui/button";
-import { AVAIL_LABEL, advertUrl, needsHmoLicence, trueMonthlyCost, type House } from "@/lib/hh/find";
+import { AVAIL_LABEL, advertUrl, cityForHouse, estimatedWalkMinutes, hasTelemetry, needsHmoLicence, trueMonthlyCost, type House } from "@/lib/hh/find";
+import { NationalPropertyData } from "./NationalPropertyData";
 
 const EPCS = ["A", "B", "C", "D", "E", "F", "G"] as const;
 const epcTone = (e: string) => (e <= "B" ? "bg-success" : e <= "D" ? "bg-warning" : "bg-destructive");
@@ -15,6 +16,8 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
   const cost = trueMonthlyCost(house);
   const hmo = needsHmoLicence(house);
   const advert = advertUrl(house);
+  const known = hasTelemetry(house);
+  const city = cityForHouse(house);
   return (
     <div className="grid gap-3">
       <HouseGallery house={house} />
@@ -24,6 +27,8 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
           <h2 className="text-lg font-bold leading-tight">{house.name}</h2>
           <div className="font-mono text-xs text-muted-foreground">{p.address} <span className="text-primary">{p.postcode}</span></div>
           <div className="mt-1 font-mono text-xs text-muted-foreground">{house.landlord} · {house.bedrooms} bed · £{house.rent} pppw · {AVAIL_LABEL[house.availability]}</div>
+          {house.availableFrom && <p className="mt-1 text-xs text-primary">Available from {new Date(`${house.availableFrom}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p>}
+          {house.approximateLocation && <p className="mt-1 text-xs text-muted-foreground">Approximate location · pin placed at the postcode centre, not a verified building</p>}
         </div>
         {onClose && <Button size="icon" variant="ghost" aria-label="Close X-Ray" onClick={onClose}><X /></Button>}
       </div>
@@ -38,7 +43,18 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
           <Button asChild size="sm"><a href={advert} target="_blank" rel="noopener noreferrer"><CalendarCheck /> Book a viewing with {house.landlord}</a></Button>
         </Stat>
       )}
-      <Stat title="True monthly cost">
+      <Stat title="Walk to university">
+        {city.walkDestinations?.map((destination) => <div key={destination.name} className="mt-2 text-xs">
+          <span className="font-semibold">About {estimatedWalkMinutes(house, destination)} min</span> · {destination.name}
+          <a className="ml-2 text-primary underline" target="_blank" rel="noopener noreferrer" href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(`${house.address}, ${house.postcode}`)}&destination=${encodeURIComponent(`${destination.name}, ${city.name}`)}&travelmode=walking`}>Walking route</a>
+        </div>)}
+        <p className="mt-2 text-xs text-muted-foreground">Estimates use straight-line distance plus 25% at 4.8 km/h, not a surveyed walking route. Check the route for crossings and access.</p>
+      </Stat>
+      {!known && <>
+        <Stat title="Monthly rent"><div className="font-mono text-2xl font-semibold">£{cost.rent}<span className="text-sm text-muted-foreground">/mo per person</span></div><p className="mt-1 text-xs text-muted-foreground">Rent only. Heating, bills, damp, noise and area rent benchmarks have not been verified.</p></Stat>
+        <NationalPropertyData house={house} />
+      </>}
+      {known && <><Stat title="True monthly cost">
         <div className="font-mono text-2xl font-semibold">£{cost.total}<span className="text-sm text-muted-foreground">/mo per person</span></div>
         <p className="mt-1 text-xs text-muted-foreground">£{cost.rent} rent (£{house.rent} pppw × 52 ÷ 12) + £{cost.energy} winter heating share (£{p.bill} ÷ {house.bedrooms} beds)</p>
       </Stat>
@@ -52,13 +68,15 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
         <div className={`font-mono text-2xl font-semibold ${tone((p.bill - 80) / 2.2)}`}>£{p.bill}<span className="text-sm text-muted-foreground">/mo</span></div>
         <p className="mt-1 text-xs text-muted-foreground">{p.billFactors.join(" • ")}</p>
       </Stat>
+      </>}
       <Stat title="HMO licence">
-        <div className={`font-mono text-sm font-semibold ${hmo ? "text-warning" : "text-primary"}`}>{hmo ? "Mandatory licence needed" : "No mandatory licence"}</div>
+        <div className={`font-mono text-sm font-semibold ${hmo ? "text-warning" : "text-primary"}`}>{city.id === "newcastle" ? "Not checked yet" : hmo ? "Mandatory licence needed" : "No mandatory licence"}</div>
+        {city.id === "newcastle" && <p className="mt-1 text-xs text-muted-foreground">Awaiting Newcastle City Council's HMO register. No Durham register data is used for this property.</p>}
         <p className="mt-1 text-xs text-muted-foreground">{hmo
           ? `${house.bedrooms} bedrooms: a house shared by 5+ people from 2+ households must hold an HMO licence. Licence status is not in the local dataset — ask the landlord for the licence number and check the council's public HMO register.`
           : `${house.bedrooms} bedrooms: below the 5-person threshold for mandatory HMO licensing. Councils can still require additional licensing, so ask the landlord.`}</p>
       </Stat>
-      <Stat title="Crime & noise">
+      {known && <><Stat title="Crime & noise">
         <div className={`font-mono text-2xl font-semibold ${tone(p.noise)}`}>{p.noise}/100 <span className="text-sm">{p.noise >= 70 ? "Loud at night" : p.noise >= 40 ? "Moderate" : "Quiet"}</span></div>
         <p className="mt-1 text-xs text-muted-foreground">Late-night noise score. Street-level crime figures are not in the local dataset — look up {p.postcode} on police.uk before you sign.</p>
       </Stat>
@@ -71,6 +89,7 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
         <div className="font-mono text-sm text-muted-foreground">{p.postcode.split(" ")[0]} median: £{p.median}/wk</div>
         <div className={`mt-1 font-mono text-sm font-semibold ${diff > 10 ? "text-destructive" : diff > 3 ? "text-warning" : "text-primary"}`}>{diff > 0 ? "+" : ""}{diff}% {diff > 10 ? "Overpriced" : diff > 3 ? "Slightly high" : "Fair"}</div>
       </Stat>
+      </>}
       <Reviews houseId={house.id} />
     </div>
   );

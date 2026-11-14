@@ -18,7 +18,7 @@ export const Route = createFileRoute("/find/")({
   head: () => ({
     meta: [
       { title: "Find House — Choose your city | Scouthaus" },
-      { name: "description", content: "Pick a city to explore student houses in 3D. Currently available in Durham." },
+      { name: "description", content: "Pick Durham or Newcastle to explore student houses in 3D." },
       { property: "og:title", content: "Find a student house in 3D — Scouthaus" },
       { property: "og:description", content: "Search a city and fly into its student areas." },
       { property: "og:type", content: "website" },
@@ -33,6 +33,7 @@ function FindCity() {
   const [q, setQ] = useState("");
   const [missing, setMissing] = useState<string | null>(null);
   const [entering, setEntering] = useState(false);
+  const [destination, setDestination] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gl = useWebGL();
   useEffect(() => {
@@ -41,6 +42,7 @@ function FindCity() {
   const go = (id: string) => {
     if (entering || timer.current) return;
     setEntering(true);
+    setDestination(findCity(id)?.name ?? id);
     timer.current = setTimeout(() => {
       void nav({ to: "/find/$city", params: { city: id } }).finally(() => { setEntering(false); timer.current = null; });
     }, 2200);
@@ -78,12 +80,13 @@ function FindCity() {
           </form>
           {missing && (
             <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm">
-              <p><strong>{missing}</strong> is coming soon — Scouthaus is currently available in Durham.</p>
+              <p><strong>{missing}</strong> is coming soon — explore Durham or Newcastle today.</p>
               <Button disabled={entering} className="mt-3" onClick={() => go("durham")}>Continue with Durham</Button>
+              <Button disabled={entering} className="ml-2 mt-3" onClick={() => go("newcastle")}>Explore Newcastle</Button>
             </div>
           )}
         </div>
-        {entering && <p role="status" className="absolute bottom-12 inset-x-4 text-center text-sm font-medium tracking-wide text-white">Flying into Durham…</p>}
+        {entering && <p role="status" className="absolute bottom-12 inset-x-4 text-center text-sm font-medium tracking-wide text-white">Flying into {destination}…</p>}
       </main>
       <SiteFooter />
     </div>

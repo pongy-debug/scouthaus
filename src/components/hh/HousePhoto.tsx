@@ -46,7 +46,7 @@ export function HouseGallery({ house }: { house: House }) {
       )}
       {photos.length > 0 && (
         <figcaption className="text-[10px] text-muted-foreground">
-          Photo: {url ? <a href={url} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">{house.landlord}</a> : house.landlord}
+          {url ? <a href={url} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Photo: {house.photoCredit ?? house.landlord}</a> : `Photo: ${house.photoCredit ?? house.landlord}`}
         </figcaption>
       )}
     </figure>

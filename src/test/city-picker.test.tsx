@@ -35,3 +35,13 @@ it("cancels pending navigation when the picker is unmounted", async () => {
   await vi.advanceTimersByTimeAsync(3000);
   expect(navigate).not.toHaveBeenCalled();
 });
+
+it("accepts Newcastle upon Tyne and flies into Newcastle", async () => {
+  vi.useFakeTimers();
+  render(<CityPicker />);
+  fireEvent.change(screen.getByRole("textbox", { name: "Search for a city" }), { target: { value: "Newcastle upon Tyne" } });
+  fireEvent.click(screen.getByRole("button", { name: /Newcastle/ }));
+  expect(screen.getByRole("status")).toHaveTextContent("Flying into Newcastle");
+  await act(async () => { await vi.advanceTimersByTimeAsync(2200); });
+  expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: "/find/$city", params: { city: "newcastle" } });
+});

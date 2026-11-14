@@ -22,7 +22,7 @@ export function SiteFooter() {
   return null;
 }
 
-export function Crumbs({ items }: { items: { label: string; to?: "/" | "/find" | "/find/$city"; params?: { city: string } }[] }) {
+export function Crumbs({ items, demo = false }: { items: { label: string; to?: "/" | "/find" | "/find/$city"; params?: { city: string } }[]; demo?: boolean }) {
   return (
     <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 font-mono text-xs text-muted-foreground">
       {items.map((it, i) => (
@@ -31,7 +31,7 @@ export function Crumbs({ items }: { items: { label: string; to?: "/" | "/find" |
           {it.to ? <Link to={it.to} params={it.params as never} className="hover:text-foreground">{it.label}</Link> : <span className="text-foreground">{it.label}</span>}
         </span>
       ))}
-      <span className="ml-2 rounded border border-warning/50 px-1.5 py-0.5 text-[10px] text-warning">Demo data</span>
+      {demo && <span className="ml-2 rounded border border-warning/50 px-1.5 py-0.5 text-[10px] text-warning">Demo data</span>}
     </nav>
   );
 }

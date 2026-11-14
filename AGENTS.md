@@ -28,3 +28,7 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## HouseHunt
+- All data and contract analysis live client-side in src/lib/hh (no backend/APIs) — app must work offline.
+- 3D map is R3F loaded lazily on an ssr:false route; scene colours are three.js constants in DurhamScene.

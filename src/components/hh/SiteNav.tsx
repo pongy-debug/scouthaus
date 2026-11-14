@@ -19,12 +19,7 @@ export function SiteNav() {
 }
 
 export function SiteFooter() {
-  return (
-    <footer className="glass flex flex-wrap justify-between gap-2 px-4 py-2 font-mono text-[10px] text-muted-foreground">
-      <span>Local Demo Dataset: fictional listings on real Durham coordinates, modelled on UK Gov EPC Open Data</span>
-      <span>Tenant empowerment & educational tool — not formal legal representation.</span>
-    </footer>
-  );
+  return null;
 }
 
 export function Crumbs({ items }: { items: { label: string; to?: "/" | "/find" | "/find/$city"; params?: { city: string } }[] }) {

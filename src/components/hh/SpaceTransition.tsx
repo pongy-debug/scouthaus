@@ -6,6 +6,6 @@ import { useSpacePhase } from "@/lib/hh/transition";
  */
 export function SpaceTransition() {
   const phase = useSpacePhase();
-  if (phase === "idle" || phase === "shrink") return null;
+  if (phase === "idle") return null;
   return <div className={`space-fx space-${phase}`} aria-hidden="true" />;
 }

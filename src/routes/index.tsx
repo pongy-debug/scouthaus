@@ -42,10 +42,7 @@ function Landing() {
 
   const nav = useNavigate();
   const router = useRouter();
-  const phase = useSpacePhase();
-  const leaving = phase !== "idle";
-  // The page shrinks toward the centre of the screen, wherever it is scrolled to.
-  const [origin, setOrigin] = useState("50% 50vh");
+  const leaving = useSpacePhase() !== "idle";
   useEffect(() => {
     // Showing the home page (first visit or back button) always starts from the normal state.
     resetSpaceFlight();
@@ -54,17 +51,16 @@ function Landing() {
     void import("@/components/hh/CityGlobe").catch(() => {});
     for (const src of ["/textures/earth-day.jpg", "/textures/earth-clouds.png"]) new Image().src = src;
   }, [router]);
-  /** Find House: fly out to the Earth instead of switching pages. Modified clicks (new tab etc.) keep their normal behaviour. */
+  /** Find House: fade through black instead of switching pages abruptly. Modified clicks (new tab etc.) keep their normal behaviour. */
   const flyToFind = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    setOrigin(`50% ${(scrollRef.current?.clientHeight || window.innerHeight) / 2}px`);
     startSpaceFlight({ reduced: false, navigate: () => nav({ to: "/find" }) });
   };
   const block = (e: MouseEvent<HTMLAnchorElement>) => { if (leaving) e.preventDefault(); };
   const off = leaving ? { "aria-disabled": true, tabIndex: -1 } : {};
   return (
-    <div ref={scrollRef} className={`scout-home min-h-screen ${phase === "shrink" || phase === "black" ? "home-leaving" : ""}`} style={leaving ? { transformOrigin: origin } : undefined}>
+    <div ref={scrollRef} className="scout-home min-h-screen">
       <header className="absolute inset-x-3 top-3 z-20 flex flex-wrap items-center gap-2 border border-transparent px-4 py-2.5">
         <SiteLogo />
       </header>

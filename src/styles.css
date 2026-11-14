@@ -203,7 +203,7 @@
 .home-star-cross { fill: oklch(0.9 0.06 215); }
 .home-scroll-hint { position: absolute; bottom: 42px; z-index: 1; display: flex; align-items: center; gap: 12px; color: var(--home-muted); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 @keyframes home-twinkle { 0%, 100% { opacity: 0.12; } 50% { opacity: 0.65; } }
-@media (prefers-reduced-motion: reduce) { .home-star { animation: none; opacity: 0.3; } }
+
 /* Find House transition: the whole home page shrinks away to nothing over pure black; a black root overlay then covers the route change. */
 .home-intro-content { display: flex; width: 100%; flex-direction: column; align-items: center; }
 .home-leaving { pointer-events: none; will-change: transform; animation: home-shrink 1200ms cubic-bezier(0.7, 0, 0.84, 0) forwards; }
@@ -216,7 +216,7 @@ html.space-lock, html.space-lock body { background: #000; }
 .space-fadeout { pointer-events: none; animation: space-out 150ms ease forwards; }
 @keyframes space-in { from { opacity: 0; } }
 @keyframes space-out { to { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .home-leaving { animation: none; } }
+
 .home-explorer { scroll-snap-align: start; scroll-snap-stop: always; display: flex; flex-direction: column; min-height: 100svh; align-items: center; background: linear-gradient(to bottom, var(--home-transition), transparent 220px), radial-gradient(ellipse at 80% 45%, oklch(0.36 0.09 235 / 0.45), transparent 65%), linear-gradient(to bottom, var(--home-transition), oklch(0.15 0.035 260)); }
 .home-explorer-inner { display: flex; flex: 1; flex-direction: column; justify-content: center; width: 100%; max-width: 1440px; margin: 0 auto; padding: clamp(24px, 3vw, 40px) clamp(20px, 5vw, 80px); }
 .home-neighbourhood-grid { min-height: 380px; }
@@ -227,7 +227,6 @@ html.space-lock, html.space-lock body { background: #000; }
 .home-house { display: block; transform: scale(1.05); transform-origin: center; }
 
 /* Entrance animations stay on the home screen and never change layout. */
-@media (prefers-reduced-motion: no-preference) {
   .scout-home > header { animation: home-enter 650ms cubic-bezier(0.22, 1, 0.36, 1) 50ms backwards; }
   .home-intro-content > .home-eyebrow,
   .home-intro-content > h1,
@@ -249,29 +248,25 @@ html.space-lock, html.space-lock body { background: #000; }
   .home-action { transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease; }
   .home-action:hover { transform: translateY(-2px); box-shadow: 0 6px 22px oklch(0.72 0.13 215 / 0.1); }
   .home-action:active { transform: translateY(0); box-shadow: none; }
-}
 @keyframes home-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes home-stars-arrive { from { opacity: 0; } to { opacity: 1; } }
 @keyframes home-scroll-nudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
 
 .home-intro { --home-letter-start: 1100ms; --home-letter-step: 95ms; --home-letter-duration: 600ms; --home-star-delay: calc(var(--home-letter-start) + 8 * var(--home-letter-step) + var(--home-letter-duration) + 140ms); --home-star-duration: 3s; }
 .home-title-letter { display: inline-block; transform-origin: center 75%; }
-@media (prefers-reduced-motion: no-preference) {
   .home-title-letter { animation: home-letter-pop var(--home-letter-duration) cubic-bezier(0.22, 1, 0.36, 1) both; }
-}
 @keyframes home-letter-pop {
   0%, 100% { transform: scale(1); }
   45% { transform: translateY(-3px) scale(1.2); }
   72% { transform: scale(0.98); }
 }
 
-@media (prefers-reduced-motion: no-preference) { .scout-home { scroll-behavior: smooth; } }
-@media (prefers-reduced-motion: reduce) { .scout-home { scroll-snap-type: y proximity; } }
+ .scout-home { scroll-behavior: smooth; }
+
 
 /* One shared three-second timeline: final card settles as the lens disappears. */
 .home-explorer { --home-scan-duration: 3s; --home-story-duration: 1s; --home-story-step: calc((var(--home-scan-duration) - var(--home-story-duration)) / 4); }
 .home-scan-lens { display: none; }
-@media (prefers-reduced-motion: no-preference) {
   .home-explorer[data-reveal="waiting"] .home-story > * { opacity: 0; transform: translateX(-28px); }
   .home-explorer[data-reveal="playing"] .home-story > * { animation: home-story-enter var(--home-story-duration) cubic-bezier(0.22, 1, 0.36, 1) backwards; }
   .home-explorer[data-reveal="playing"] .home-story > :nth-child(2) { animation-delay: var(--home-story-step); }
@@ -280,7 +275,6 @@ html.space-lock, html.space-lock body { background: #000; }
   .home-explorer[data-reveal="playing"] .home-story > :nth-child(5) { animation-delay: calc(var(--home-story-step) * 4); }
   .home-explorer[data-reveal="playing"] .home-scan-lens { display: inline; animation: home-lens-sweep var(--home-scan-duration) linear both; }
   .home-explorer[data-reveal="playing"] .home-lens-sample { animation: home-lens-sample var(--home-scan-duration) linear both; }
-}
 @keyframes home-story-enter { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes home-lens-sweep {
   0% { opacity: 0; transform: translate(140px, 200px); }
@@ -304,7 +298,7 @@ html.space-lock, html.space-lock body { background: #000; }
 .home-city--left { left: 0; background-position: left center; }
 .home-city--right { right: 0; background-position: right center; mask-image: linear-gradient(to left, black 45%, transparent), linear-gradient(to bottom, transparent, black 18%, black 78%, transparent); }
 @media (min-width: 960px) { .home-city { display: block; } }
-@media (prefers-reduced-motion: no-preference) { .home-city { animation: home-city-arrive 2200ms ease-out 200ms backwards; } }
+ .home-city { animation: home-city-arrive 2200ms ease-out 200ms backwards; }
 @keyframes home-city-arrive { from { opacity: 0; } to { opacity: 0.6; } }
 
 /* The warm-colour mask confines moving light to lit windows, not walls or scenery. */
@@ -312,10 +306,8 @@ html.space-lock, html.space-lock body { background: #000; }
 .home-explorer[data-reveal="playing"] .home-window-light,
 .home-explorer[data-reveal="static"] .home-window-light { opacity: 1; }
 .home-window-wash { opacity: 0; }
-@media (prefers-reduced-motion: no-preference) {
   .home-explorer[data-reveal="playing"] .home-window-wash { animation: home-window-flow 9s ease-in-out 3s infinite both; }
   .home-explorer[data-reveal="playing"] .home-window-wash-secondary { animation-delay: 7.5s; animation-direction: reverse; }
-}
 @keyframes home-window-flow {
   0% { opacity: 0; transform: translate(175px, 105px); }
   20% { opacity: 0.75; transform: translate(220px, 165px); }
@@ -326,10 +318,8 @@ html.space-lock, html.space-lock body { background: #000; }
 
 .home-title-dot { position: relative; display: inline-block; color: var(--home-ink); }
 .home-title-star { display: none; position: absolute; left: 50%; top: 80%; width: 0.18em; height: 0.18em; overflow: visible; pointer-events: none; filter: drop-shadow(0 0 1px oklch(0.82 0.1 215 / 0.5)); }
-@media (prefers-reduced-motion: no-preference) {
   .home-title-star { display: block; animation: home-title-star-fall var(--home-star-duration) cubic-bezier(0.35, 0, 0.2, 1) var(--home-star-delay) both; }
   .home-title-dot-rest { animation: home-title-dot-settle var(--home-star-duration) linear var(--home-star-delay) both; }
-}
 @keyframes home-title-star-fall {
   0% { opacity: 0; transform: translate(-50%, -50%) translateY(-75svh) scale(0.8) rotate(-65deg); }
   8% { opacity: 1; }

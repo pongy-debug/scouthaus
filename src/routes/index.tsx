@@ -28,7 +28,7 @@ function Landing() {
 
   useEffect(() => {
     const section = explorerRef.current;
-    if (!section || typeof window.IntersectionObserver !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!section || typeof window.IntersectionObserver !== "function") return;
     setReveal("waiting");
     const observer = new IntersectionObserver(([entry]) => {
       if (entry?.isIntersecting) {
@@ -58,9 +58,8 @@ function Landing() {
   const flyToFind = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setOrigin(`50% ${(scrollRef.current?.clientHeight || window.innerHeight) / 2}px`);
-    startSpaceFlight({ reduced, navigate: () => nav({ to: "/find" }) });
+    startSpaceFlight({ reduced: false, navigate: () => nav({ to: "/find" }) });
   };
   const block = (e: MouseEvent<HTMLAnchorElement>) => { if (leaving) e.preventDefault(); };
   const off = leaving ? { "aria-disabled": true, tabIndex: -1 } : {};

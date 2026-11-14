@@ -1,26 +1,10 @@
 # Scouthaus
 
-Implement exactly the screenshot and nothing else
+<img height="23" alt="Built with Lovable" src="https://github.com/user-attachments/assets/bae169b5-c2d7-4f8b-b5c0-1c604552f0a1">
 
-This project was built with [Lovable](https://lovable.dev).
+Find your perfect home without pain.
+
+<!-- Gif -->
 
 **Live app**: https://scouthaus.lovable.app
 
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/a27114a6-dfbd-477f-9732-f67f949c49aa).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```

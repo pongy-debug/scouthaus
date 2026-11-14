@@ -60,7 +60,7 @@ export function ContractScanner() {
     let ai: AiScan;
     if (file && isDoc(file) && file.size > MAX_AI_FILE) ai = { ok: false, reason: "failed", message: "File is over 10 MB" };
     else {
-      setReading(file ? `Gemini is reading ${file.name}…` : "Gemini is analysing the contract…");
+      setReading(file ? `Gemini is reading ${file.name}… a long contract can take a minute or two` : "Gemini is analysing the contract… this can take up to a minute");
       try {
         const text = file ? (isDoc(file) ? undefined : await file.text()) : pasted;
         ai = await analyseContract({ data: file && isDoc(file) ? { file: { name: file.name, mime: file.type || "application/pdf", data: await toBase64(file) } } : { text: text ?? "" } });

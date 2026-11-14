@@ -7,7 +7,10 @@ import { toResult, type Flag, type ScanResult } from "./scanner";
 
 const MAX_FILE_B64 = 14_000_000; // ≈10 MB file; Gemini inline requests are capped at 20 MB
 const DEFAULT_MODEL = "gemini-3.8-flash"; // override with the GEMINI_MODEL secret
-const FALLBACK_MODEL = "gemini-3.5-flash";
+const FALLBACK_MODEL = "gemini-3.6-flash"; // must be a model ID listed at ai.google.dev/gemini-api/docs/models
+const PRIMARY_TIMEOUT_MS = 90_000;
+const HEDGE_AFTER_MS = 12_000;
+const FALLBACK_TIMEOUT_MS = 120_000;
 
 const Input = z.object({
   text: z.string().max(400_000).optional(),
@@ -74,29 +77,65 @@ export const analyseContract = createServerFn({ method: "POST" })
     if (data.file) parts.push({ inline_data: { mime_type: data.file.mime, data: data.file.data } });
     if (data.text?.trim()) parts.push({ text: `CONTRACT TEXT:\n${data.text}` });
     try {
-      // A busy model (429/5xx) falls back once to a second model before the local reader takes over.
-      const call = (m: string) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-goog-api-key": key },
-        signal: AbortSignal.timeout(90_000),
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: PROMPT }] },
-          contents: [{ role: "user", parts }],
-          generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA },
-        }),
-      });
-      let res = await call(model);
-      if ((res.status === 429 || res.status >= 500) && model !== FALLBACK_MODEL) {
-        console.warn(`Gemini ${model} busy (${res.status}), trying ${FALLBACK_MODEL}`);
-        res = await call(FALLBACK_MODEL);
+      // No temperature/top_p: Gemini 3 ignores sampling parameters and Google says to leave them out.
+      const stop = new AbortController(); // cancels whichever request loses
+      const call = async (m: string, ms: number) => {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-goog-api-key": key },
+          signal: AbortSignal.any([AbortSignal.timeout(ms), stop.signal]),
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: PROMPT }] },
+            contents: [{ role: "user", parts }],
+            generationConfig: { responseMimeType: "application/json", responseSchema: SCHEMA },
+          }),
+        });
+        // Busy / unknown model: let the other model answer instead (the fallback's own errors are final).
+        if (m !== FALLBACK_MODEL && (res.status === 429 || res.status === 404 || res.status >= 500)) {
+          console.warn(`Gemini ${m} unavailable (${res.status}): ${(await res.text()).slice(0, 300)}`);
+          throw new Error(`${m} unavailable`);
+        }
+        // Read the body here, so the losing request can be cancelled without cutting off the winner.
+        return { used: m, status: res.status, ok: res.ok, raw: await res.text() };
+      };
+      // The primary model is often overloaded: it answers 503 or simply hangs. So the fallback model starts as
+      // soon as the primary fails, or after HEDGE_AFTER_MS of silence, and the first usable answer wins.
+      // The fallback is slower (≈60–75 s for a 19-page contract), hence its long timeout.
+      let picked: Awaited<ReturnType<typeof call>>;
+      if (model === FALLBACK_MODEL) picked = await call(model, FALLBACK_TIMEOUT_MS);
+      else {
+        let primaryWon = false;
+        const primary = call(model, PRIMARY_TIMEOUT_MS).then((r) => { primaryWon = true; return r; });
+        const backup = Promise.race([primary.then(() => {}, () => {}), new Promise((ok) => setTimeout(ok, HEDGE_AFTER_MS))]).then(() => {
+          if (primaryWon) throw new Error("backup not needed");
+          console.warn(`Gemini ${model} failed or silent — also asking ${FALLBACK_MODEL}`);
+          return call(FALLBACK_MODEL, FALLBACK_TIMEOUT_MS);
+        });
+        try { picked = await Promise.any([primary, backup]); }
+        catch (e) { throw e instanceof AggregateError ? e.errors[e.errors.length - 1] : e; }
+        finally { stop.abort(); }
       }
-      if (!res.ok) {
-        console.error(`Gemini ${model} responded ${res.status}: ${(await res.text()).slice(0, 500)}`);
-        return { ok: false, reason: "failed", message: `Gemini returned ${res.status}` };
+      const { used, raw } = picked;
+      if (!picked.ok) {
+        console.error(`Gemini ${used} responded ${picked.status}: ${raw.slice(0, 500)}`);
+        // Pass Google's own status (e.g. RESOURCE_EXHAUSTED, NOT_FOUND, PERMISSION_DENIED) to the UI so failures are diagnosable.
+        let status = "";
+        try { status = (JSON.parse(raw) as { error?: { status?: string } }).error?.status ?? ""; } catch { /* non-JSON error body */ }
+        return { ok: false, reason: "failed", message: `Gemini (${used}) returned ${picked.status}${status ? ` ${status}` : ""}` };
       }
-      const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-      const json = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-      const out = Output.parse(JSON.parse(json));
+      const body = JSON.parse(raw) as { candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[]; promptFeedback?: { blockReason?: string } };
+      const cand = body.candidates?.[0];
+      const json = cand?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? "").join("") ?? "";
+      const finish = cand?.finishReason ?? body.promptFeedback?.blockReason ?? "no candidates";
+      if (!json.trim() || (finish !== "STOP" && finish !== "no candidates")) {
+        // e.g. MAX_TOKENS (answer cut off), SAFETY / RECITATION / PROHIBITED_CONTENT (blocked)
+        console.error(`Gemini ${used} gave no usable answer: finishReason=${finish}, ${json.length} chars`);
+        if (!json.trim() || finish !== "MAX_TOKENS") return { ok: false, reason: "failed", message: `Gemini (${used}) stopped early: ${finish}` };
+      }
+      let parsed: unknown;
+      try { parsed = JSON.parse(json); }
+      catch { console.error(`Gemini ${used} returned invalid JSON (finishReason=${finish}): ${json.slice(0, 300)}`); return { ok: false, reason: "failed", message: `Gemini (${used}) answer was cut off or malformed (${finish})` }; }
+      const out = Output.parse(parsed);
       let unenforceable = 0;
       const flags: Flag[] = out.flags.map((f, i) => {
         if (f.unenforceable) unenforceable++;
@@ -105,6 +144,7 @@ export const analyseContract = createServerFn({ method: "POST" })
       return { ok: true, address: out.address, result: toResult(Math.max(out.clauses, flags.length), flags, unenforceable) };
     } catch (e) {
       console.error("Gemini contract analysis failed", e);
-      return { ok: false, reason: "failed", message: "Gemini could not analyse this document" };
+      const name = e instanceof Error ? e.name : "";
+      return { ok: false, reason: "failed", message: name === "TimeoutError" || name === "AbortError" ? "Gemini timed out" : name === "ZodError" ? "Gemini answer did not match the expected format" : "Gemini could not be reached" };
     }
   });

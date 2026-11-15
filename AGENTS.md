@@ -35,4 +35,6 @@ use the editor.
 - The scanner must keep working with no key or offline: the red-flag check falls back to the rules in scanner.ts, run on the device (the summary and email need Gemini). The built-in sample goes through the same redaction flow as an upload.
 - Find House maps use MapLibre (OpenFreeMap positron vector tiles, fill-extrusion) in StreetMap, lazy-loaded on ssr:false routes; X-Ray map is still R3F (DurhamScene).
 - Find House areas/houses live in src/lib/hh/find.ts (CITIES); scenes place them with `project()` from real lat/lng — add cities there, not in components.
+- Map landmarks (cathedral, library, station) are their own data set in src/lib/hh/landmarks.ts, never house listings. That file is written by `node scripts/build-landmarks.mjs` (Postcodes.io check, OSM footprints, Wikimedia Commons photo + credit, free licences only) — add a landmark to SEEDS there and rerun; do not call Wikipedia or OSM from the app. Cyan (#22D3EE) is reserved for hovered landmarks.
+- The house search box lives in HouseList; its text is one state in the city route shared with the filters and the map assistant (`MapAction.query`), matched by `matchesSearch` in find.ts.
 - Route modules must not import scene modules (three.js) statically; shared helpers like overviewPos live in three-free files.

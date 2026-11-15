@@ -7,7 +7,7 @@
 // and score in a reply is a fact from the dataset, not something the model wrote.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { AVAIL_LABEL, CITIES, applyFilters, bedRange, bedsLabel, bedsOf, rentOf, defaultFilters, hasTelemetry, rentRange, riskLabel, trueMonthlyCost, type City, type Filters, type House, type RiskLayer } from "./find";
+import { AVAIL_LABEL, CITIES, applyFilters, matchesSearch, bedRange, bedsLabel, bedsOf, rentOf, defaultFilters, hasTelemetry, rentRange, riskLabel, trueMonthlyCost, type City, type Filters, type House, type RiskLayer } from "./find";
 
 // Chat needs to feel instant, so the fast model goes first and the slower one is only a backup.
 const CHAT_MODELS: [string, number][] = [["gemini-3.5-flash-lite", 15_000], ["gemini-3.6-flash", 45_000]];
@@ -41,14 +41,15 @@ const Output = z.object({
   areaId: z.string(), sortBy: z.enum(SORTS), open: z.enum(["none", "best", "named"]), houseId: z.string(), clarify: z.boolean(),
   changes: z.array(z.enum(CHANGEABLE)),
   lead: z.string().trim().max(600),
+  search: z.string().trim().max(120).optional(),
 });
 
 // Every field is required and ids are enums, so the model has to state the whole map state each turn and
 // cannot name a house or area that does not exist.
 const schemaFor = (areaIds: string[], houseIds: string[]) => ({
   type: "OBJECT",
-  required: ["clarify", "changes", "maxRent", "minBeds", "maxBeds", "epc", "availability", "type", "layer", "areaId", "sortBy", "open", "houseId", "lead"],
-  propertyOrdering: ["clarify", "changes", "maxRent", "minBeds", "maxBeds", "epc", "availability", "type", "layer", "areaId", "sortBy", "open", "houseId", "lead"],
+  required: ["clarify", "changes", "maxRent", "minBeds", "maxBeds", "epc", "availability", "type", "layer", "areaId", "sortBy", "open", "houseId", "search", "lead"],
+  propertyOrdering: ["clarify", "changes", "maxRent", "minBeds", "maxBeds", "epc", "availability", "type", "layer", "areaId", "sortBy", "open", "houseId", "search", "lead"],
   properties: {
     maxRent: { type: "INTEGER", description: "Maximum rent in £ per person per week that should be active after this message. Repeat the current value if the student did not change it." },
     clarify: { type: "BOOLEAN", description: "True ONLY when the student wants a size but gives no number (e.g. \"a big house\", \"somewhere roomy\"). Then lead is ONE short question asking how many people are in the group, and every other field repeats the current value. False otherwise." },
@@ -63,12 +64,14 @@ const schemaFor = (areaIds: string[], houseIds: string[]) => ({
     sortBy: { type: "STRING", enum: [...SORTS], description: "What the student cares about most right now, used to rank the matching houses: rent = cheapest, trueCost = lowest total monthly cost, noise = quietest, damp = least damp, heating = cheapest to heat / warmest, epc = best energy rating. \"none\" if they expressed no priority." },
     open: { type: "STRING", enum: ["none", "best", "named"], description: "named = the student named or asked about one specific house (set houseId). best = they asked to be shown or taken to the best / top / a single match. none = otherwise." },
     houseId: { type: "STRING", enum: [...houseIds, "none"], description: "Only when open is \"named\": the id of the house the student named. Otherwise \"none\"." },
+    search: { type: "STRING", description: "Text for the house search box. Only when the student asks to find or search for a street, a house name, a postcode or a letting agent by name, e.g. \"find Whinney Hill\" gives \"Whinney Hill\". An area goes in areaId instead. Otherwise an empty string." },
     lead: { type: "STRING", description: "One or two short sentences (max 30 words) acknowledging what you changed or answering a general question — or, when clarify is true, the one question. Do NOT name any house and do NOT quote any price, score or count — the app adds the matching houses and their real numbers after your text." },
   },
 });
 
 /** The full filter set and layer to apply, plus an optional camera move (areaId null = back to the overview). */
-export interface MapAction { filters: Filters; layer: RiskLayer; areaId?: string | null; houseId?: string }
+/** `query` fills the house search box (the same state the list's search uses); absent = clear it. */
+export interface MapAction { filters: Filters; layer: RiskLayer; areaId?: string | null; houseId?: string; query?: string }
 export type ChatTurn = { ok: true; reply: string; action: MapAction } | { ok: false; reason: "no-key" | "failed"; message: string };
 
 const areaName = (city: City, id: string) => city.areas.find((a) => a.id === id)?.name ?? id;
@@ -119,9 +122,18 @@ export function resolveTurn(city: City, out: z.infer<typeof Output>, current: Cu
 
   // Results follow what the house list shows: the area the student is in, unless they ask for another area or all of them.
   const asked = areas.some((a) => a.id === out.areaId) ? out.areaId : null;
-  const scope = out.areaId === "overview" ? null : asked ?? current.areaId;
+  let scope = out.areaId === "overview" ? null : asked ?? current.areaId;
   if (out.areaId === "overview") action.areaId = null; else if (asked && asked !== current.areaId) action.areaId = asked;
-  const inScope = (h: House) => !scope || h.area === scope;
+  // "find Whinney Hill": the text goes into the house search box and narrows the results the same way.
+  const query = (out.search ?? "").trim();
+  const found = (h: House) => matchesSearch(city, h, query);
+  if (query) {
+    action.query = query;
+    // Nothing in this area but matches elsewhere: search the whole city, as the search box's own link does.
+    if (scope && !city.houses.some((h) => h.area === scope && found(h)) && city.houses.some(found)) { scope = null; action.areaId = null; }
+    lines.push(`Searching for "${query}".`);
+  }
+  const inScope = (h: House) => (!scope || h.area === scope) && found(h);
   let sort: Sort = out.sortBy;
   if (sort !== "none" && sort !== "rent" && city.houses.some((h) => inScope(h) && !hasTelemetry(h))) {
     lines.push("Those property measurements have not been verified, so I cannot rank by that yet. Showing advertised rent instead.");

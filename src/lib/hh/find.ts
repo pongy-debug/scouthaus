@@ -413,6 +413,14 @@ export function bedsLabel(f: Pick<Filters, "minBeds" | "maxBeds">, range: { min:
   if (f.minBeds <= range.min && f.maxBeds >= range.max) return "Any";
   return f.minBeds === f.maxBeds ? `${f.minBeds}` : `${f.minBeds}–${f.maxBeds}`;
 }
+/** House search: every word must appear somewhere in the name, street, postcode, area or agent (case and spacing ignored). */
+export const searchTerms = (q: string) => q.toLowerCase().trim().split(/\s+/).filter(Boolean);
+export function matchesSearch(city: City, h: House, q: string) {
+  const terms = searchTerms(q);
+  if (!terms.length) return true;
+  const text = [h.name, h.address, h.postcode, h.postcode.replace(/\s/g, ""), h.landlord, city.areas.find((a) => a.id === h.area)?.name].join(" ").toLowerCase();
+  return terms.every((term) => text.includes(term));
+}
 export function applyFilters(hs: House[], f: Filters) {
   return hs.filter((x) => (x.flatOptions ?? [x]).some((flat) => flat.rent <= f.maxRent && flat.bedrooms >= f.minBeds && flat.bedrooms <= f.maxBeds) && (f.epc === "any" || (epcWorst(x) ?? "Z") <= f.epc)
     && (f.availability === "all" || x.availability === f.availability) && (f.type === "all" || typeOf(x) === f.type));

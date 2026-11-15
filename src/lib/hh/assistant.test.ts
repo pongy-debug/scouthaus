@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { resolveTurn } from "./assistant";
-import { CITIES, applyFilters, bedRange, defaultFilters } from "./find";
+import { CITIES, applyFilters, bedRange, defaultFilters, matchesSearch } from "./find";
 
 const city = CITIES[0]!;
 const beds = bedRange(city);
@@ -66,5 +66,23 @@ describe("ask-the-map grounding", () => {
     expect(action.houseId).toBe(pricey.id);
     expect(applyFilters([pricey], action.filters)).toHaveLength(1);
     expect(reply).toContain(`£${pricey.rent} pppw`);
+  });
+});
+
+describe("ask-the-map search", () => {
+  const ask = { ...base, changes: [] as Change[], sortBy: "none" as const, open: "none" as const, search: "Whinney Hill" };
+  it("'find Whinney Hill' fills the search box and counts only matching houses", () => {
+    const { action, reply } = resolveTurn(city, ask);
+    expect(action.query).toBe("Whinney Hill");
+    expect(reply).toContain('Searching for "Whinney Hill".');
+    expect(reply).toContain(`: ${city.houses.filter((h) => matchesSearch(city, h, "Whinney Hill")).length} found.`);
+  });
+  it("widens to the whole city when the current area has no match", () => {
+    const { action } = resolveTurn(city, ask, { filters: defaultFilters(city), layer: "all", areaId: "claypath" });
+    expect(action.areaId).toBeNull();
+    expect(resolveTurn(city, ask, { filters: defaultFilters(city), layer: "all", areaId: "elvet" }).action.areaId).toBeUndefined();
+  });
+  it("leaves the search box empty when nothing was searched for", () => {
+    expect(resolveTurn(city, { ...base, search: "" }).action.query).toBeUndefined();
   });
 });

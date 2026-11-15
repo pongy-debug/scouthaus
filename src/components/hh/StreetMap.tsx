@@ -1,12 +1,26 @@
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type MapGeoJSONFeature } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
-import { AVAIL_LABEL, advertUrl, areaCircle, areaStats, bedsOf, rentOf, riskLabel, riskOf, type Area, type Availability, type City, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { createPortal } from "react-dom";
+import { AVAIL_LABEL, advertUrl, areaCircle, areaStats, bedsOf, rentOf, riskLabel, riskOf, estimatedWalkMinutes, type Area, type Availability, type City, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { landmarksFor, type Landmark } from "@/lib/hh/landmarks";
 
 // MapLibre paint needs concrete colours (mirrors design tokens)
 export const AVAIL_COLOR: Record<Availability, string> = { available: "#10B981", "under-offer": "#F59E0B", let: "#64748B" };
 export const RISK_COLOR: Record<Risk, string> = { low: "#10B981", med: "#F59E0B", high: "#EF4444", unknown: "#64748B" };
 const INDIGO = "#6366F1";
+/** Reserved for landmarks under the cursor — never used for availability or risk colours. */
+export const LANDMARK_CYAN = "#22D3EE";
+const LANDMARK_REST = "#e3e6eb";
+const LANDMARK_LABEL_ZOOM = 14.5;
+const lmLayer = (id: string) => `hh-landmark-${id}`;
+/** OpenFreeMap building features carry the OSM id as id × 10 + element type, which lets a landmark's own footprints be hidden from the base layer. */
+const tileId = (ref: string) => { const [type, id] = ref.split("/"); return Number(id) * 10 + (type === "relation" ? 3 : type === "way" ? 2 : 1); };
+/** Footprints as GeoJSON, a hair larger and taller than the OSM shape so they always cover the base building beneath. */
+function landmarkFeatures(l: Landmark) {
+  const grow = ([lng, lat]: number[]) => [l.lng + (lng! - l.lng) * 1.012, l.lat + (lat! - l.lat) * 1.012];
+  return l.footprints.map((f) => ({ type: "Feature" as const, properties: { lm: l.id, h: f.h + 0.6, base: f.base ?? 0 }, geometry: { type: "Polygon" as const, coordinates: f.rings.map((r) => r.map(grow)) } }));
+}
 const STYLE = "https://tiles.openfreemap.org/styles/positron";
 const PICK_PX = 15;
 const OVERVIEW_ZOOM = 13.6;
@@ -33,10 +47,12 @@ function pointIn(pt: [number, number], ring: number[][]) {
 /** Zoom that fits an area circle of radius `r` metres. */
 const areaZoom = (r: number) => Math.max(15, Math.min(16.8, 16.6 - Math.log2(r / 200)));
 
-function addBuildings(map: maplibregl.Map) {
+function addBuildings(map: maplibregl.Map, landmarks: Landmark[]) {
   const firstSymbol = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
   map.addLayer({
     id: "hh-buildings", type: "fill-extrusion", source: "openmaptiles", "source-layer": "building", minzoom: 13,
+    // Landmarks are drawn by their own layers, so their footprints are left out here.
+    filter: ["!", ["in", ["id"], ["literal", landmarks.flatMap((l) => l.osmIds.map(tileId))]]],
     paint: {
       "fill-extrusion-color": "#eef0f3",
       // OSM height / building:levels (render_height); otherwise 7 m
@@ -74,6 +90,22 @@ export default function StreetMap(props: StreetMapProps) {
   const flown = useRef({ area: props.area?.id ?? null, sel: props.selectedId });
   const [loaded, setLoaded] = useState(false);
   const [tip, setTip] = useState<Tip>(null);
+  // Landmark under the cursor (or tapped): its building turns cyan and its card opens, anchored to the building.
+  const [lmId, setLmId] = useState<string | null>(null);
+  const [cardEl] = useState(() => {
+    const d = document.createElement("div"); d.style.zIndex = "6";
+    // The card sits inside the map container: keep its clicks and taps from reaching the map underneath.
+    for (const type of ["click", "dblclick", "mousedown", "touchstart"]) d.addEventListener(type, (e) => e.stopPropagation());
+    return d;
+  });
+  const lmClose = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overCard = useRef(false);
+  const showLandmark = (id: string) => { if (lmClose.current) { clearTimeout(lmClose.current); lmClose.current = null; } setLmId(id); };
+  const hideLandmark = (now = false) => {
+    if (lmClose.current) clearTimeout(lmClose.current);
+    if (now) { lmClose.current = null; setLmId(null); } else lmClose.current = setTimeout(() => { lmClose.current = null; setLmId(null); }, 250);
+  };
+  const lmApi = useRef({ showLandmark, hideLandmark }); lmApi.current = { showLandmark, hideLandmark };
   const { city, area, houses, layer, selectedId, hoverId } = props;
   const houseKey = houses.map((h) => h.id).join();
   const fid = (id: string | null) => (id ? city.houses.findIndex((h) => h.id === id) : -1);
@@ -116,6 +148,7 @@ export default function StreetMap(props: StreetMapProps) {
     // Leave the bottom-left corner free for the Ask-the-map bubble.
     const corner = map.getContainer().querySelector<HTMLElement>(".maplibregl-ctrl-bottom-left"); if (corner) corner.style.bottom = "52px";
     map.addControl(new maplibregl.AttributionControl({ compact: false, customAttribution: "© OpenStreetMap contributors" }), "bottom-right");
+    const lmLabels: HTMLElement[] = [];
     let areaHover: number | null = null;
     const setAreaHover = (id: number | null) => {
       if (id === areaHover) return;
@@ -144,8 +177,29 @@ export default function StreetMap(props: StreetMapProps) {
       return best;
     };
 
+    const landmarks = landmarksFor(p.city.id);
+    const landmarkAt = (pt: maplibregl.Point): string | undefined => {
+      const layers = landmarks.map((l) => lmLayer(l.id)).filter((id) => map.getLayer(id));
+      return layers.length ? (map.queryRenderedFeatures(pt, { layers })[0]?.properties["lm"] as string | undefined) : undefined;
+    };
+    let lmHover: string | null = null;
     map.on("load", () => {
-      addBuildings(map);
+      addBuildings(map, landmarks);
+      for (const l of landmarks) {
+        map.addSource(lmLayer(l.id), { type: "geojson", data: { type: "FeatureCollection", features: landmarkFeatures(l) } });
+        // One layer per landmark with a plain colour, so the change to cyan and back is a real 150 ms transition.
+        map.addLayer({ id: lmLayer(l.id), type: "fill-extrusion", source: lmLayer(l.id), paint: {
+          "fill-extrusion-color": LANDMARK_REST, "fill-extrusion-color-transition": { duration: 150, delay: 0 },
+          "fill-extrusion-height": ["get", "h"], "fill-extrusion-base": ["get", "base"], "fill-extrusion-opacity": 0.96, "fill-extrusion-vertical-gradient": true,
+        } });
+        const lab = document.createElement("div");
+        lab.className = "pointer-events-none whitespace-nowrap rounded-full border border-cyan-400/60 bg-card/90 px-2 py-0.5 text-[10px] font-medium text-card-foreground shadow";
+        lab.textContent = l.name; lab.dataset["landmarkLabel"] = l.id;
+        new maplibregl.Marker({ element: lab, anchor: "bottom", offset: [0, -14] }).setLngLat([l.lng, l.lat]).addTo(map);
+        lmLabels.push(lab);
+      }
+      const showLabels = () => { for (const lab of lmLabels) lab.style.display = map.getZoom() >= LANDMARK_LABEL_ZOOM ? "" : "none"; };
+      map.on("zoom", showLabels); showLabels();
       const feats = p.city.areas.map((a, i) => {
         const c = areaCircle(p.city, a);
         return { type: "Feature" as const, id: i, properties: { active: a.active, lat: c.lat, lng: c.lng }, geometry: { type: "Polygon" as const, coordinates: circle(c.lng, c.lat, c.r) } };
@@ -185,6 +239,15 @@ export default function StreetMap(props: StreetMapProps) {
     map.on("mousemove", (e) => {
       if (!map.getLayer("hh-houses")) return;
       const P = propsRef.current;
+      if (overCard.current) return; // the cursor is on the landmark card, which sits above the map
+      const lm = landmarkAt(e.point);
+      if (lm) {
+        // A landmark is not a listing: no house hover, no area hover, no tooltip — just its own card.
+        lmHover = lm; lmApi.current.showLandmark(lm); setAreaHover(null); hover(null); setTip(null);
+        map.getCanvas().style.cursor = "pointer";
+        return;
+      }
+      if (lmHover) { lmHover = null; lmApi.current.hideLandmark(); }
       const hit = areaAt(e.point), h = hit ? undefined : houseAt(e.point);
       setAreaHover(hit ? hit.i : null); hover(h ? h.id : null);
       map.getCanvas().style.cursor = h || hit?.a.active ? "pointer" : "";
@@ -204,14 +267,29 @@ export default function StreetMap(props: StreetMapProps) {
     });
     map.on("click", (e) => {
       if (!map.getLayer("hh-houses")) return;
+      // Tapping a landmark opens its card (never the Property X-Ray); tapping anywhere else closes it.
+      const lm = landmarkAt(e.point);
+      if (lm) { setTip(null); lmHover = lm; lmApi.current.showLandmark(lm); return; }
+      lmHover = null; lmApi.current.hideLandmark(true);
       const P = propsRef.current, hit = areaAt(e.point);
       if (hit) { if (hit.a.active) { setTip(null); setAreaHover(null); P.onPickArea(hit.a.id); } return; }
       const h = houseAt(e.point); if (h) { setTip(null); P.onOpen(h); }
     });
-    const leave = () => { setTip(null); setAreaHover(null); hover(null); };
+    const leave = () => { setTip(null); setAreaHover(null); hover(null); if (lmHover) { lmHover = null; lmApi.current.hideLandmark(); } };
     map.getCanvasContainer().addEventListener("mouseleave", leave);
     return () => { selMarker.current = null; labels.current = []; map.remove(); mapRef.current = null; setLoaded(false); };
   }, [city.id]);
+
+  // The hovered landmark's whole building turns cyan; every other landmark returns to its normal colour.
+  useEffect(() => {
+    const m = mapRef.current; if (!m || !loaded) return;
+    for (const l of landmarksFor(city.id)) if (m.getLayer(lmLayer(l.id))) m.setPaintProperty(lmLayer(l.id), "fill-extrusion-color", l.id === lmId ? LANDMARK_CYAN : LANDMARK_REST);
+    const l = landmarksFor(city.id).find((x) => x.id === lmId);
+    if (!l) return;
+    const marker = new maplibregl.Marker({ element: cardEl, anchor: "bottom", offset: [0, -18] }).setLngLat([l.lng, l.lat]).addTo(m);
+    return () => { marker.remove(); overCard.current = false; };
+  }, [loaded, lmId]);
+  useEffect(() => () => { if (lmClose.current) clearTimeout(lmClose.current); }, []);
 
   // Redraw listings when the filters or the risk layer change.
   useEffect(() => { const m = mapRef.current; if (m && loaded) syncHouses(m); }, [loaded, houseKey, layer]);
@@ -269,6 +347,28 @@ export default function StreetMap(props: StreetMapProps) {
         <div className="pointer-events-none absolute z-10 w-56 rounded-md border border-border bg-popover p-2 font-mono text-[11px] text-popover-foreground shadow-lg"
           style={{ left: tip.x + 14, top: tip.y + 14 }}>{tip.html}</div>
       )}
+      {(() => {
+        const l = landmarksFor(city.id).find((x) => x.id === lmId);
+        const from = selectedId ? city.houses.find((h) => h.id === selectedId) : undefined;
+        return l ? createPortal(<LandmarkCard landmark={l} from={from}
+          onEnter={() => { overCard.current = true; showLandmark(l.id); }} onLeave={() => { overCard.current = false; hideLandmark(); }} />, cardEl) : null;
+      })()}
+    </div>
+  );
+}
+
+/** Popup for a landmark: photo with its Wikimedia Commons credit, name, type, postcode and the walk from the selected house. */
+export function LandmarkCard({ landmark: l, from, onEnter, onLeave }: { landmark: Landmark; from?: House | undefined; onEnter?: () => void; onLeave?: () => void }) {
+  return (
+    <div role="dialog" aria-label={l.name} onMouseEnter={onEnter} onMouseLeave={onLeave}
+      className="w-60 cursor-default overflow-hidden rounded-lg border border-cyan-400/60 bg-popover text-left text-popover-foreground shadow-xl">
+      {l.photo && <img src={l.photo.url} alt={l.name} width={400} loading="lazy" referrerPolicy="no-referrer" className="h-32 w-full object-cover" />}
+      <div className="space-y-0.5 p-2.5">
+        <p className="text-sm font-semibold leading-tight">{l.name}</p>
+        <p className="text-xs text-muted-foreground">{l.type} · <span className="font-mono">{l.postcode}</span></p>
+        {from && <p className="text-xs">About {estimatedWalkMinutes(from, l)} min walk from {from.name}</p>}
+        {l.photo && <p className="pt-1 text-[10px] leading-snug text-muted-foreground">Photo: {l.photo.author}, {l.photo.licence}, via <a href={l.photo.page} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Wikimedia Commons</a></p>}
+      </div>
     </div>
   );
 }

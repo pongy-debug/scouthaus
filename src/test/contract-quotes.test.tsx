@@ -59,65 +59,57 @@ it("shows quote statuses, highlights the original text behind a redacted quote, 
   expect(source).toHaveTextContent("Rent is £168 per week.");
 });
 
-it("sends corrected text back through the privacy check, and cancelling an edit changes nothing", async () => {
+it("edits and cancels only before analysis, then uses corrected redacted text", async () => {
   const contract = "Tenant: Alice Brown\n1. Rent is £168 per week.\n2. No pets.";
   analyseContract.mockResolvedValue(answer(makeFlag("pets", "2", "No pets.")));
   summariseContract.mockResolvedValue(noSummary);
   render(<ContractScanner />);
-  await paste(contract);
-  fireEvent.click(screen.getByRole("button", { name: /Contract text/ }));
-  fireEvent.click(screen.getByRole("button", { name: "Edit text" }));
+  fireEvent.change(screen.getByLabelText("Or paste your contract"), { target: { value: contract } });
+  fireEvent.click(screen.getByRole("button", { name: /Check my contract/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit text" }));
   const editor = () => screen.getByRole("textbox", { name: "Edit contract text" });
   expect(editor()).toHaveValue(contract);
+  expect(screen.queryByLabelText("Redacted contract preview")).toBeNull();
+  expect(screen.getByRole("button", { name: /Analyse redacted contract/ })).toBeDisabled();
   fireEvent.change(editor(), { target: { value: "   " } });
   expect(screen.getByRole("button", { name: "Apply changes" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "Cancel editing" }));
-  expect(screen.getByRole("region", { name: "Contract text" })).toHaveTextContent("£168");
-  expect(analyseContract).toHaveBeenCalledTimes(1);
-
-  const corrected = contract.replace("£168", "£198");
+  expect(screen.getByLabelText("Redacted contract preview")).toHaveTextContent("£168");
+  expect(analyseContract).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Edit text" }));
-  fireEvent.change(editor(), { target: { value: corrected } });
+  fireEvent.change(editor(), { target: { value: contract.replace("£168", "£198").replace("Alice Brown", "Jane Smith") } });
   fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  expect(await screen.findByLabelText("Redacted contract preview")).toHaveTextContent("£198");
-  expect(analyseContract).toHaveBeenCalledTimes(1);
+  expect(screen.getByLabelText("Redacted contract preview")).toHaveTextContent("£198");
+  expect(screen.getByLabelText("Redacted contract preview")).not.toHaveTextContent("Jane Smith");
+  expect(analyseContract).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: /Analyse redacted contract/ }));
-  await waitFor(() => expect(analyseContract).toHaveBeenCalledTimes(2));
-  const sent = analyseContract.mock.calls[1]![0].data.text as string;
-  expect(sent).toContain("£198");
-  expect(sent).not.toContain("Alice Brown");
-  expect(summariseContract).toHaveBeenLastCalledWith({ data: { text: sent } });
   await screen.findByRole("region", { name: "Your contract review" });
+  const sent = analyseContract.mock.calls[0]![0].data.text as string;
+  expect(sent).toContain("£198"); expect(sent).not.toContain("Jane Smith");
+  expect(summariseContract).toHaveBeenLastCalledWith({ data: { text: sent } });
   fireEvent.click(screen.getByRole("button", { name: /Contract text/ }));
   expect(screen.getByRole("region", { name: "Contract text" })).toHaveTextContent("£198");
-  expect(screen.getByRole("region", { name: "Contract text" })).not.toHaveTextContent("£168");
+  expect(screen.queryByRole("button", { name: "Edit text" })).toBeNull();
 });
 
-it("keeps an edited sample contract on this device", async () => {
+it("keeps built-in samples local and shows results without an edit button", async () => {
   render(<ContractScanner />);
   fireEvent.click(screen.getByRole("button", { name: "Try sample contract" }));
   await screen.findByRole("region", { name: "Your contract review" });
   expect(screen.getAllByText("Original text verified").length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("button", { name: /Contract text/ }));
-  fireEvent.click(screen.getByRole("button", { name: "Edit text" }));
-  fireEvent.change(screen.getByRole("textbox", { name: "Edit contract text" }), { target: { value: "1. Rent is £150 per week." } });
-  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  expect(await screen.findByRole("region", { name: "Contract text" })).toHaveTextContent("Rent is £150 per week.");
-  expect(analyseContract).not.toHaveBeenCalled();
-  expect(summariseContract).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Edit text" })).toBeNull();
+  expect(analyseContract).not.toHaveBeenCalled(); expect(summariseContract).not.toHaveBeenCalled();
 });
 
-it("reads a directly reviewed PDF on this device only when the user asks to see its text", async () => {
+it("keeps the extracted PDF available for quotation lookup after pre-analysis review", async () => {
   analyseContract.mockResolvedValue(answer(makeFlag("pets", "2", "No pets.")));
   summariseContract.mockResolvedValue(noSummary);
   readPdf.mockResolvedValue("1. Rent is £168 per week.\n2. No pets.");
   const { container } = render(<ScannerSession initialInput={{ file: new File(["%PDF-1.4 test"], "contract.pdf", { type: "application/pdf" }) }} />);
+  fireEvent.click(await screen.findByRole("button", { name: /Analyse redacted contract/ }));
   await screen.findByRole("region", { name: "Your contract review" });
-  expect(readPdf).not.toHaveBeenCalled();
-  expect(screen.queryByRole("button", { name: "View original" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Show contract text" }));
-  expect(await screen.findByRole("region", { name: "Contract text" })).toHaveTextContent("No pets.");
   fireEvent.click(within(container.querySelector("#flag-pets") as HTMLElement).getByRole("button", { name: "View original" }));
   expect(screen.getByRole("region", { name: "Contract text" }).querySelector("mark")).toHaveTextContent("No pets.");
-  expect(analyseContract).toHaveBeenCalledTimes(1);
+  expect(readPdf).toHaveBeenCalledOnce();
 });

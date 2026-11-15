@@ -354,6 +354,12 @@ html, body, .app-page, html.space-lock, html.space-lock body { background: var(-
   .app-shell--viewport .home-scroll-hint { bottom: 20px; }
   .app-shell--viewport .find-city-page { height: 100%; min-height: 0; }
   .app-shell--viewport .find-city-page .city-picker { min-height: 0; }
+  .app-shell--viewport .city-map-page { height: 100%; min-height: 0; }
+  .app-shell--viewport .city-map-page > :not([data-scene-root]) { flex-shrink: 0; }
+  .app-shell--viewport .city-map-page > [data-scene-root] { height: auto; min-height: 0; flex: 1; }
+  .app-shell--viewport .contract-check-page { height: 100%; min-height: 0; }
+  .app-shell--viewport .scanner-content { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
+  .app-shell--viewport .scanner-content::-webkit-scrollbar { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .space-fx { display: none; }

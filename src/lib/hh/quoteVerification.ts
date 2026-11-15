@@ -1,5 +1,3 @@
-import type { Part } from "./redact";
-
 export interface QuoteMatch { start: number; end: number; clause: string | null }
 export interface QuoteCheck { status: "verified" | "clause-review" | "quote-review"; matches: QuoteMatch[] }
 
@@ -39,20 +37,4 @@ export function verifyQuote(text: string, quote: string, reference: string): Quo
   const ref = reference.trim().replace(/^(?:clauses?|cl\.)\s*/i, "").replace(/[.:]$/, "");
   const verified = matches.length > 0 && matches.every((m) => m.clause === ref);
   return { status: verified ? "verified" : matches.length ? "clause-review" : "quote-review", matches };
-}
-
-/** Translate a match in the outgoing text back to the private, original text. */
-export function originalMatch(match: QuoteMatch, parts: Part[]): QuoteMatch {
-  let sent = 0, original = 0, start = -1, end = -1;
-  for (const part of parts) {
-    const next = sent + part.sent.length;
-    if (match.start < next && match.end > sent) {
-      const from = part.id ? original : original + Math.max(0, match.start - sent);
-      const to = part.id ? original + part.original.length : original + Math.min(part.original.length, match.end - sent);
-      if (start < 0) start = from;
-      end = to;
-    }
-    sent = next; original += part.original.length;
-  }
-  return { ...match, start, end };
 }

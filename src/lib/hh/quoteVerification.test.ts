@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { originalMatch, verifyQuote } from "./quoteVerification";
-import { applyRedactions, detectRedactions } from "./redact";
+import { verifyQuote } from "./quoteVerification";
 
 const text = "Tenant: Alice Brown\n1. Rent is £168 per week.\n2. The tenant must not pay a cleaning fee.\n14.2 Alice Brown must pay £180 for ‘professional cleaning’.\nThe charge applies on departure.\n15. The landlord repairs the boiler.";
 
@@ -40,14 +39,6 @@ describe("contract quotation checks", () => {
   });
   it("requires clause checking for an unnumbered source", () => {
     expect(verifyQuote("Rent is £168 per week.", "Rent is £168 per week.", "1").status).toBe("clause-review");
-  });
-  it("compares redacted text first and maps placeholders to the private original", () => {
-    const items = detectRedactions(text), { redacted, parts } = applyRedactions(text, items);
-    const check = verifyQuote(redacted, "[TENANT_1] must pay £180 for 'professional cleaning'.", "14.2");
-    expect(check.status).toBe("verified");
-    const match = originalMatch(check.matches[0]!, parts);
-    expect(text.slice(match.start, match.end)).toBe("Alice Brown must pay £180 for ‘professional cleaning’.");
-    expect(verifyQuote(redacted, "Alice Brown must pay £180", "14.2").status).toBe("quote-review");
   });
   it("keeps dates and punctuation significant", () => {
     expect(verifyQuote("1. Pay by 1 July 2027.", "Pay by 1 July 2028.", "1").status).toBe("quote-review");

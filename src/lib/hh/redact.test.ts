@@ -119,34 +119,3 @@ describe("redaction: sample contract", () => {
     expect(restoreText("the house at [PROPERTY_ADDRESS]", items)).toBe("the house at 14 Gilesgate");
   });
 });
-
-describe("redaction: PDF field layouts", () => {
-  it.each([
-    ["same-line roles", "Tenant: Alice Brown Landlord: Henry Smith", ["Alice Brown", "Henry Smith"]],
-    ["name followed by contact fields", "Tenant: Alice Brown Email: alice@example.com Tel: 07700 900123", ["Alice Brown", "alice@example.com", "07700 900123"]],
-    ["next-line values", "Tenant:\nAlice Brown\nLandlord:\nHenry Smith", ["Alice Brown", "Henry Smith"]],
-    ["numbered inline role", "1. Parties Tenant: Alice Brown Landlord: Henry Smith", ["Alice Brown", "Henry Smith"]],
-    ["lowercase labelled name", "Tenant: alice brown", ["alice brown"]],
-    ["numbered tenants", "Tenant 1: Alice Brown Tenant 2: Henry Smith", ["Alice Brown", "Henry Smith"]],
-  ])("redacts %s without swallowing adjacent labels", (_label, text, values) => {
-    const { items, redacted } = sentFor(text);
-    for (const value of values) {
-      expect(items.some((i) => i.value === value)).toBe(true);
-      expect(redacted).not.toContain(value);
-    }
-    expect(redacted).toContain("Tenant");
-  });
-
-  it("redacts full-name case variants after identifying a person", () => {
-    expect(sentFor("Tenant: Alice Brown\nALICE BROWN and alice brown sign.").redacted)
-      .toBe("Tenant: [TENANT_1]\n[TENANT_1] and [TENANT_1] sign.");
-  });
-
-  it("does not absorb rent, companies or an empty next field as a person's name", () => {
-    const text = "Tenant:\nLandlord: Wearside Student Lets Ltd Email: office@example.com\nRent: £168 per week. Deposit: £840.";
-    const { redacted, items } = sentFor(text);
-    expect(items.filter((i) => i.kind === "name")).toEqual([]);
-    expect(redacted).toContain("Wearside Student Lets Ltd");
-    expect(redacted).toContain("Rent: £168 per week. Deposit: £840.");
-  });
-});

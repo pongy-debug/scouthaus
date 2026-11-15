@@ -56,7 +56,7 @@ export function AskMap({ cityId, areas, houses, state, onAction }: { cityId: str
   return (
     <div className="absolute bottom-3 left-3 z-30 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2">
       {open && (
-        <section aria-label="Ask the map" className="glass flex h-[26rem] max-h-[60vh] w-80 max-w-full flex-col overflow-hidden bg-popover/95 shadow-xl">
+        <section aria-label="Ask the map" className="glass flex h-104 max-h-[60vh] w-80 max-w-full flex-col overflow-hidden bg-popover/95 shadow-xl">
           <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
             <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4 text-primary" /> Ask the map</div>
             <button type="button" aria-label="Close chat" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
@@ -87,7 +87,7 @@ export function AskMap({ cityId, areas, houses, state, onAction }: { cityId: str
               className="min-w-0 flex-1 rounded-md border border-input bg-background/60 px-2 py-1.5 text-xs outline-none focus:border-primary" />
             <button type="submit" disabled={busy || !draft.trim()} aria-label="Send" className="rounded-md bg-primary p-1.5 text-primary-foreground disabled:opacity-40"><Send className="size-3.5" /></button>
           </form>
-          <p className="px-3 pb-2 text-[10px] text-muted-foreground">Messages go to Google Gemini. Answers use this city's listed properties.</p>
+          <p className="px-3 pb-2 text-[10px] text-muted-foreground">Messages go to <a href="https://gemini.google/about">Google Gemini</a>. Gemini is AI and can make mistakes. Answers are based on this city's listed properties.</p>
         </section>
       )}
       <button type="button" aria-expanded={open} aria-label={open ? "Hide map assistant" : "Ask the map"} onClick={() => setOpen((o) => !o)}

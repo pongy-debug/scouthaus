@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { CalendarCheck, ExternalLink, GitCompareArrows, Star, X } from "lucide-react";
 import { HouseGallery } from "@/components/hh/HousePhoto";
 import { Button } from "@/components/ui/button";
-import { AVAIL_LABEL, PROPERTY_TYPE_LABEL, advertUrl, bedsOf, cityForHouse, estimatedWalkMinutes, hasTelemetry, needsHmoLicence, trueMonthlyCost, type House } from "@/lib/hh/find";
+import { AVAIL_LABEL, PROPERTY_TYPE_LABEL, advertUrl, bedsOf, rentOf, cityForHouse, estimatedWalkMinutes, hasTelemetry, needsHmoLicence, trueMonthlyCost, type House } from "@/lib/hh/find";
 import { NationalPropertyData } from "./NationalPropertyData";
 
 const EPCS = ["A", "B", "C", "D", "E", "F", "G"] as const;
@@ -26,7 +27,7 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
           <div className="text-xs uppercase tracking-widest text-muted-foreground">Property X-Ray</div>
           <h2 className="text-lg font-bold leading-tight">{house.name}</h2>
           <div className="font-mono text-xs text-muted-foreground">{p.address} <span className="text-primary">{p.postcode}</span></div>
-          <div className="mt-1 font-mono text-xs text-muted-foreground">{house.landlord} · {bedsOf(house)} · £{house.rent} pppw · {house.availabilityNote ?? AVAIL_LABEL[house.availability]}</div>
+          <div className="mt-1 font-mono text-xs text-muted-foreground">{house.landlord} · {bedsOf(house)} · {rentOf(house)} · {house.availabilityNote ?? AVAIL_LABEL[house.availability]}</div>
           {house.availableFrom && <p className="mt-1 text-xs text-primary">Available from {new Date(`${house.availableFrom}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p>}
           {house.propertyType === "studio" && <p className="mt-1 text-xs font-semibold">{PROPERTY_TYPE_LABEL.studio}</p>}
           {house.rentNote && <p className="mt-1 text-xs text-muted-foreground">{house.rentNote}</p>}
@@ -41,6 +42,10 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
         {advert && <Button asChild size="sm" variant="outline"><a href={advert} target="_blank" rel="noopener noreferrer"><ExternalLink /> View original advert</a></Button>}
         <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">{p.area} · {p.tag}</span>
       </div>
+      {house.tourPath && <Stat title="Virtual tour">
+        <Button asChild size="sm"><Link to={house.tourPath}>Explore in 3D</Link></Button>
+        <p className="mt-2 text-xs text-muted-foreground">Explore the supplied Flat 4 model, including three bedrooms, kitchen and living room. Illustrative layout; other flats may differ.</p>
+      </Stat>}
       {advert && (
         <Stat title="Viewing">
           <p className="mb-2 text-xs text-muted-foreground">Viewings are arranged by the letting agent on their own advert page.</p>
@@ -55,12 +60,12 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
         <p className="mt-2 text-xs text-muted-foreground">Estimates use straight-line distance plus 25% at 4.8 km/h, not a surveyed walking route. Check the route for crossings and access.</p>
       </Stat>
       {!known && <>
-        <Stat title="Monthly rent"><div className="font-mono text-2xl font-semibold">£{cost.rent}<span className="text-sm text-muted-foreground">/mo per person</span></div><p className="mt-1 text-xs text-muted-foreground">Rent only. Heating, bills, damp, noise and area rent benchmarks have not been verified.</p></Stat>
+        <Stat title="Monthly rent"><div className="font-mono text-2xl font-semibold">{house.flatOptions ? "From " : ""}£{cost.rent}<span className="text-sm text-muted-foreground">/mo per person</span></div><p className="mt-1 text-xs text-muted-foreground">Rent only. Heating, bills, damp, noise and area rent benchmarks have not been verified.</p></Stat>
         <NationalPropertyData house={house} />
       </>}
       {known && <><Stat title="True monthly cost">
         <div className="font-mono text-2xl font-semibold">£{cost.total}<span className="text-sm text-muted-foreground">/mo per person</span></div>
-        <p className="mt-1 text-xs text-muted-foreground">£{cost.rent} rent (£{house.rent} pppw × 52 ÷ 12) + £{cost.energy} winter heating share (£{p.bill} ÷ {house.bedrooms} beds)</p>
+        <p className="mt-1 text-xs text-muted-foreground">£{cost.rent} rent ({rentOf(house)} × 52 ÷ 12) + £{cost.energy} winter heating share (£{p.bill} ÷ {house.bedrooms} beds)</p>
       </Stat>
       <Stat title="EPC energy rating">
         <div className="font-mono text-2xl font-semibold">{p.epc} <span className="text-sm text-muted-foreground">({p.epcScore}/100)</span></div>
@@ -73,13 +78,16 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
         <p className="mt-1 text-xs text-muted-foreground">{p.billFactors.join(" • ")}</p>
       </Stat>
       </>}
-      <Stat title="HMO licence">
+      {house.flatOptions ? <Stat title="HMO licence">
+        <div className={`font-mono text-sm font-semibold ${hmo ? "text-warning" : "text-primary"}`}>{hmo ? "Mandatory licence needed for the larger flats" : "No mandatory licence"}</div>
+        <p className="mt-1 text-xs text-muted-foreground">{hmo ? "A flat shared by 5+ people from 2+ households must hold an HMO licence." : "Every advertised flat is below the 5-person threshold for mandatory HMO licensing."} {house.checked?.hmo ?? "Licence status has not been checked against the council's register; confirm the selected flat with the agent."}</p>
+      </Stat> : <Stat title="HMO licence">
         <div className={`font-mono text-sm font-semibold ${hmo ? "text-warning" : "text-primary"}`}>{hmo ? "Mandatory licence needed" : "No mandatory licence"}</div>
         {city.id === "newcastle" && <p className="mt-1 text-xs text-muted-foreground">Whether this house holds its licence has not been checked against Newcastle City Council's HMO register.</p>}
         <p className="mt-1 text-xs text-muted-foreground">{hmo
           ? `${house.bedrooms} bedrooms: a house shared by 5+ people from 2+ households must hold an HMO licence. Licence status is not in the local dataset — ask the landlord for the licence number and check the council's public HMO register.`
           : `${house.bedrooms} bedrooms: below the 5-person threshold for mandatory HMO licensing. Councils can still require additional licensing, so ask the landlord.`}</p>
-      </Stat>
+      </Stat>}
       {known && <><Stat title="Crime & noise">
         <div className={`font-mono text-2xl font-semibold ${tone(p.noise)}`}>{p.noise}/100 <span className="text-sm">{p.noise >= 70 ? "Loud at night" : p.noise >= 40 ? "Moderate" : "Quiet"}</span></div>
         <p className="mt-1 text-xs text-muted-foreground">Late-night noise score. Street-level crime figures are not in the local dataset — look up {p.postcode} on police.uk before you sign.</p>

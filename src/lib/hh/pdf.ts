@@ -10,27 +10,41 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 export type ReadProgress = (message: string) => void;
 type Ocr = (image: HTMLCanvasElement | File) => Promise<string>;
 
-async function withOcr<T>(progress: ReadProgress, job: (ocr: Ocr) => Promise<T>): Promise<T> {
+async function withOcr<T>(progress: ReadProgress, job: (ocr: Ocr) => Promise<T>, signal?: AbortSignal): Promise<T> {
   let worker: import("tesseract.js").Worker | undefined;
+  const terminate = () => { const active = worker; worker = undefined; if (active) setTimeout(() => { void active.terminate().catch(() => {}); }, 0); };
+  signal?.addEventListener("abort", terminate, { once: true });
   const ocr: Ocr = async (image) => {
+    signal?.throwIfAborted();
     if (!worker) {
       progress("Loading OCR engine…");
       const { createWorker } = await import("tesseract.js");
       worker = await createWorker("eng");
+      if (signal?.aborted) { terminate(); signal.throwIfAborted(); }
     }
-    return (await worker.recognize(image)).data.text;
+    const active = worker;
+    return new Promise<string>((resolve, reject) => {
+      const cancel = () => reject(new DOMException("Reading cancelled", "AbortError"));
+      signal?.addEventListener("abort", cancel, { once: true });
+      void active.recognize(image).then((result) => resolve(result.data.text), reject)
+        .finally(() => signal?.removeEventListener("abort", cancel));
+    });
   };
-  try { return await job(ocr); } finally { await worker?.terminate(); }
+  try { return await job(ocr); } finally { signal?.removeEventListener("abort", terminate); terminate(); }
 }
 
 /** Text of a PDF: the embedded text layer where a page has one, OCR of the rendered page where it doesn't. */
-export async function readPdf(file: File, progress: ReadProgress = () => {}): Promise<string> {
+export async function readPdf(file: File, progress: ReadProgress = () => {}, signal?: AbortSignal): Promise<string> {
   const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
-  const doc = await task.promise;
+  const destroy = () => { setTimeout(() => { void task.destroy().catch(() => {}); }, 0); };
+  signal?.addEventListener("abort", destroy, { once: true });
   try {
+    signal?.throwIfAborted();
+    const doc = await task.promise;
     return await withOcr(progress, async (ocr) => {
       const pages: string[] = [];
       for (let n = 1; n <= doc.numPages; n++) {
+        signal?.throwIfAborted();
         progress(`Reading page ${n} of ${doc.numPages}…`);
         const page = await doc.getPage(n);
         const content = await page.getTextContent();
@@ -49,11 +63,11 @@ export async function readPdf(file: File, progress: ReadProgress = () => {}): Pr
         page.cleanup();
       }
       return reflow(pages.join("\n\n"));
-    });
-  } finally { await task.destroy(); }
+    }, signal);
+  } finally { signal?.removeEventListener("abort", destroy); destroy(); }
 }
 
 /** Text of a photographed or scanned contract page (PNG, JPG…). */
-export async function readImage(file: File, progress: ReadProgress = () => {}): Promise<string> {
-  return withOcr(progress, async (ocr) => { progress("OCR on image…"); return reflow(await ocr(file)); });
+export async function readImage(file: File, progress: ReadProgress = () => {}, signal?: AbortSignal): Promise<string> {
+  return withOcr(progress, async (ocr) => { progress("OCR on image…"); return reflow(await ocr(file)); }, signal);
 }

@@ -3,7 +3,7 @@ import { Component, lazy, Suspense, useEffect, useRef, useState, type KeyboardEv
 import { Starfield } from "@/components/hh/Starfield";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Crumbs, SiteFooter, SiteNav } from "@/components/hh/SiteNav";
+import { Crumbs } from "@/components/hh/SiteNav";
 import { findCity, suggestCities } from "@/lib/hh/find";
 import { useWebGL } from "@/components/hh/MapFallback";
 
@@ -61,7 +61,6 @@ function FindCity() {
   };
   return (
     <div className="flex min-h-screen flex-col gap-3 p-3">
-      <SiteNav />
       <div className="px-1"><Crumbs items={[{ label: "Home", to: "/" }, { label: "Find House" }]} /></div>
       <main className={`city-picker relative isolate flex min-h-[75vh] flex-1 items-center justify-center overflow-hidden rounded-3xl px-6 py-16 md:px-12 ${entering ? "city-picker-entering" : ""}`} aria-busy={entering}>
         <Starfield className="city-picker-stars" />
@@ -102,7 +101,6 @@ function FindCity() {
         </div>
         {entering && <p role="status" className="absolute bottom-12 inset-x-4 text-center text-sm font-medium tracking-wide text-white">Flying into {destination}…</p>}
       </main>
-      <SiteFooter />
     </div>
   );
 }

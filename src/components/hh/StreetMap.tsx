@@ -74,6 +74,7 @@ export interface StreetMapProps {
   layer: RiskLayer;
   selectedId: string | null;
   hoverId: string | null;
+  onTour?: () => void;
   onPickArea: (areaId: string) => void;
   onOpen: (h: House) => void;
   onHover: (houseId: string | null) => void;
@@ -114,7 +115,7 @@ export default function StreetMap(props: StreetMapProps) {
   function syncHouses(map: maplibregl.Map) {
     const src = map.getSource("hh-houses") as GeoJSONSource | undefined; if (!src) return;
     const P = propsRef.current;
-    const feats = P.houses.map((h) => {
+    const feats = P.houses.filter((h) => !(P.selectedId === "claypath-ruth" && h.id === "claypath-ruth")).map((h) => {
       const fp = footprints.current.get(h.id);
       return { type: "Feature" as const, id: fid(h.id), properties: { id: h.id, color: RISK_COLOR[riskOf(h, P.layer)], h: (fp?.h ?? 7) + 3, lat: h.lat, lng: h.lng },
         geometry: { type: "Polygon" as const, coordinates: fp?.coords ?? square(h.lng, h.lat, 6) } };
@@ -137,6 +138,10 @@ export default function StreetMap(props: StreetMapProps) {
   }
 
   useEffect(() => {
+    let disposed = false;
+    let release = () => {};
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => { timer = setTimeout(() => {
     const p = propsRef.current;
     const start = p.area ? areaCircle(p.city, p.area) : null;
     const map = new maplibregl.Map({
@@ -184,6 +189,7 @@ export default function StreetMap(props: StreetMapProps) {
     };
     let lmHover: string | null = null;
     map.on("load", () => {
+      if (disposed) return;
       addBuildings(map, landmarks);
       for (const l of landmarks) {
         map.addSource(lmLayer(l.id), { type: "geojson", data: { type: "FeatureCollection", features: landmarkFeatures(l) } });
@@ -230,6 +236,18 @@ export default function StreetMap(props: StreetMapProps) {
         "fill-extrusion-opacity": 0.95,
       } });
       map.addLayer({ id: "hh-houses-outline", type: "line", source: "hh-houses", paint: { "line-color": ["case", lit, INDIGO, ["get", "color"]], "line-width": 3 } });
+      const ruth = p.city.houses.find((h) => h.id === "claypath-ruth");
+      if (ruth) {
+        // Schematic four-storey preview at the listing's approximate pin, not an OSM footprint.
+        map.addSource("hh-ruth-floors", { type: "geojson", data: { type: "FeatureCollection", features: [0, 1, 2, 3].map((floor) => ({
+          type: "Feature" as const, properties: { floor, base: floor * 3.2, height: floor * 3.2 + 3, color: floor === 3 ? "#10b981" : "#64748b" },
+          geometry: { type: "Polygon" as const, coordinates: square(ruth.lng, ruth.lat, 8) },
+        })) } });
+        map.addLayer({ id: "hh-ruth-floors", type: "fill-extrusion", source: "hh-ruth-floors", layout: { visibility: p.selectedId === "claypath-ruth" ? "visible" : "none" }, paint: {
+          "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": ["get", "base"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-opacity": 1,
+        } });
+        if (p.selectedId === "claypath-ruth") map.flyTo({ center: [ruth.lng, ruth.lat], zoom: 19, pitch: 65, bearing: -25, duration: 1800 });
+      }
       syncHouses(map);
       map.on("idle", () => matchFootprints(map));
       el.current?.closest("[data-scene-root]")?.setAttribute("data-scene-ready", "1");
@@ -240,6 +258,15 @@ export default function StreetMap(props: StreetMapProps) {
       if (!map.getLayer("hh-houses")) return;
       const P = propsRef.current;
       if (overCard.current) return; // the cursor is on the landmark card, which sits above the map
+      if (P.selectedId === "claypath-ruth" && map.getLayer("hh-ruth-floors")) {
+        const floor = map.queryRenderedFeatures(e.point, { layers: ["hh-ruth-floors"] })[0];
+        if (floor) {
+          const top = floor.properties["floor"] === 3;
+          hover(null); setAreaHover(null); map.getCanvas().style.cursor = top ? "pointer" : "";
+          setTip({ x: e.point.x, y: e.point.y, html: <><b>Ruth First House</b><div>{top ? "Top floor - Click to enter Flat 4 tour" : "No tour available for this floor"}</div><div>Illustrative building and floor placement</div></> });
+          return;
+        }
+      }
       const lm = landmarkAt(e.point);
       if (lm) {
         // A landmark is not a listing: no house hover, no area hover, no tooltip — just its own card.
@@ -267,6 +294,10 @@ export default function StreetMap(props: StreetMapProps) {
     });
     map.on("click", (e) => {
       if (!map.getLayer("hh-houses")) return;
+      if (propsRef.current.selectedId === "claypath-ruth" && map.getLayer("hh-ruth-floors")) {
+        const floor = map.queryRenderedFeatures(e.point, { layers: ["hh-ruth-floors"] })[0];
+        if (floor) { if (floor.properties["floor"] === 3) { setTip(null); propsRef.current.onTour?.(); } return; }
+      }
       // Tapping a landmark opens its card (never the Property X-Ray); tapping anywhere else closes it.
       const lm = landmarkAt(e.point);
       if (lm) { setTip(null); lmHover = lm; lmApi.current.showLandmark(lm); return; }
@@ -277,7 +308,9 @@ export default function StreetMap(props: StreetMapProps) {
     });
     const leave = () => { setTip(null); setAreaHover(null); hover(null); if (lmHover) { lmHover = null; lmApi.current.hideLandmark(); } };
     map.getCanvasContainer().addEventListener("mouseleave", leave);
-    return () => { selMarker.current = null; labels.current = []; map.remove(); mapRef.current = null; setLoaded(false); };
+    release = () => { selMarker.current = null; labels.current = []; mapRef.current = null; setTimeout(() => map.remove(), 0); };
+    }, 0); });
+    return () => { disposed = true; cancelAnimationFrame(frame); clearTimeout(timer); release(); };
   }, [city.id]);
 
   // The hovered landmark's whole building turns cyan; every other landmark returns to its normal colour.
@@ -299,7 +332,9 @@ export default function StreetMap(props: StreetMapProps) {
     const m = mapRef.current; if (!m || !loaded) return;
     for (const id of ["hh-areas-fill", "hh-areas-line"]) m.setLayoutProperty(id, "visibility", area ? "none" : "visible");
     for (const l of labels.current) l.style.display = area ? "none" : "";
-  }, [loaded, area?.id]);
+    if (m.getLayer("hh-ruth-floors")) m.setLayoutProperty("hh-ruth-floors", "visibility", selectedId === "claypath-ruth" ? "visible" : "none");
+    syncHouses(m);
+  }, [loaded, area?.id, selectedId]);
 
   // Camera: fly to a newly selected house, otherwise to the area that was just entered (or back out).
   useEffect(() => {
@@ -307,7 +342,7 @@ export default function StreetMap(props: StreetMapProps) {
     const prev = flown.current; flown.current = { area: area?.id ?? null, sel: selectedId };
     const sel = selectedId ? city.houses.find((h) => h.id === selectedId) : undefined;
     const areaChanged = (area?.id ?? null) !== prev.area;
-    if (sel && (selectedId !== prev.sel || areaChanged)) m.flyTo({ center: [sel.lng, sel.lat], zoom: Math.max(m.getZoom(), 17), ...VIEW, duration: 1400 });
+    if (sel && (selectedId !== prev.sel || areaChanged)) m.flyTo({ center: [sel.lng, sel.lat], zoom: sel.id === "claypath-ruth" ? 19 : Math.max(m.getZoom(), 17), ...VIEW, duration: 1400 });
     else if (areaChanged) {
       if (area) { const c = areaCircle(city, area); m.flyTo({ center: [c.lng, c.lat], zoom: areaZoom(c.r), ...VIEW, duration: 1600 }); }
       else m.flyTo({ center: [city.center.lng, city.center.lat], zoom: city.overviewZoom ?? OVERVIEW_ZOOM, ...VIEW, duration: 1400 });

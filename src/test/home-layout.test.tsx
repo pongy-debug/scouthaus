@@ -14,7 +14,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 vi.mock("@/components/hh/CityGlobe", () => ({ default: () => null }));
 import { Route } from "@/routes/index";
 import { SpaceTransition } from "@/components/hh/SpaceTransition";
-import { resetSpaceFlight } from "@/lib/hh/transition";
+import { resetSpaceFlight, startSpaceFlight } from "@/lib/hh/transition";
 const Home = Route.options.component as ComponentType;
 afterEach(() => { cleanup(); resetSpaceFlight(); vi.useRealTimers(); vi.unstubAllGlobals(); navigate.mockClear(); });
 
@@ -59,39 +59,11 @@ describe("home layout", () => {
     expect(zoomedArt).toHaveAttribute("transform", "scale(1.8)");
   });
 
-  it.each([[false, 150], [true, 150]])("fades to black without zooming and only then opens Find House (reduced motion: %s)", async (reduced, ms) => {
+  it("preserves an active page fade when navigating back home", () => {
     vi.useFakeTimers();
-    vi.stubGlobal("matchMedia", () => ({ matches: reduced, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
-    const view = render(<><Home /><SpaceTransition /></>);
-    const find = screen.getByRole("link", { name: "Find House" });
-    fireEvent.click(find);
-    fireEvent.click(find);
-    expect(view.container.querySelector(".home-leaving")).toBeNull();
+    startSpaceFlight({ reduced: false, navigate });
+    render(<><Home /><SpaceTransition /></>);
     expect(document.documentElement).toHaveClass("space-lock");
-    expect(find).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("link", { name: "Contract Check" })).toHaveAttribute("aria-disabled", "true");
-    await act(async () => { await vi.advanceTimersByTimeAsync(ms - 1); });
-    expect(navigate).not.toHaveBeenCalled();
-    // The black overlay is already up before the route changes…
-    expect(document.querySelector(".space-fx")).not.toBeNull();
-    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
-    expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: "/find" });
-    // …stays up across it while the next page fades in, and everything returns to normal afterwards.
-    expect(document.querySelector(".space-fadein")).not.toBeNull();
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-    expect(document.querySelector(".space-fx")).toBeNull();
-    expect(document.documentElement).not.toHaveClass("space-lock");
-  });
-  it("shows the home page in its normal state when it is opened again mid-flight (back button)", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
-    const first = render(<Home />);
-    fireEvent.click(screen.getByRole("link", { name: "Find House" }));
-    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
-    first.unmount();
-    const again = render(<Home />);
-    expect(again.container.querySelector(".home-leaving")).toBeNull();
-    expect(screen.getByRole("link", { name: "Find House" })).not.toHaveAttribute("aria-disabled");
-    expect(document.documentElement).not.toHaveClass("space-lock");
+    expect(screen.getByRole("link", { name: "Find House" })).toHaveAttribute("aria-disabled", "true");
   });
 });

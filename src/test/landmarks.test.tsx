@@ -41,13 +41,13 @@ const onOpen = vi.fn(), onPickArea = vi.fn();
 async function mount(cityId: string, selectedId: string | null = null) {
   const c = city(cityId);
   render(<div style={{ height: 400 }}><StreetMap city={c} area={null} houses={c.houses} layer="all" selectedId={selectedId} hoverId={null} onPickArea={onPickArea} onOpen={onOpen} onHover={() => {}} /></div>);
-  await act(async () => { await Promise.resolve(); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(32); });
 }
 const fire = (type: string) => act(() => { for (const h of gl.state.handlers.get(type) ?? []) h({ point: { x: 100, y: 100 } }); });
 const colour = (id: string) => gl.state.layers.get(`hh-landmark-${id}`)!.paint["fill-extrusion-color"];
 const moveOnto = (id: string | null) => { gl.state.under = id; fire("mousemove"); };
 beforeEach(() => { vi.useFakeTimers(); gl.state.under = null; gl.state.zoom = 13.6; onOpen.mockClear(); onPickArea.mockClear(); });
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); vi.runOnlyPendingTimers(); vi.useRealTimers(); });
 
 it("data: three verified landmarks with OSM footprints and freely licensed, credited photos", () => {
   expect(LANDMARKS.map((l) => [l.name, l.type, l.city, l.postcode])).toEqual([

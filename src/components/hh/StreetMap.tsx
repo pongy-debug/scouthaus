@@ -138,6 +138,10 @@ export default function StreetMap(props: StreetMapProps) {
   }
 
   useEffect(() => {
+    let disposed = false;
+    let release = () => {};
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => { timer = setTimeout(() => {
     const p = propsRef.current;
     const start = p.area ? areaCircle(p.city, p.area) : null;
     const map = new maplibregl.Map({
@@ -185,6 +189,7 @@ export default function StreetMap(props: StreetMapProps) {
     };
     let lmHover: string | null = null;
     map.on("load", () => {
+      if (disposed) return;
       addBuildings(map, landmarks);
       for (const l of landmarks) {
         map.addSource(lmLayer(l.id), { type: "geojson", data: { type: "FeatureCollection", features: landmarkFeatures(l) } });
@@ -303,7 +308,9 @@ export default function StreetMap(props: StreetMapProps) {
     });
     const leave = () => { setTip(null); setAreaHover(null); hover(null); if (lmHover) { lmHover = null; lmApi.current.hideLandmark(); } };
     map.getCanvasContainer().addEventListener("mouseleave", leave);
-    return () => { selMarker.current = null; labels.current = []; map.remove(); mapRef.current = null; setLoaded(false); };
+    release = () => { selMarker.current = null; labels.current = []; mapRef.current = null; setTimeout(() => map.remove(), 0); };
+    }, 0); });
+    return () => { disposed = true; cancelAnimationFrame(frame); clearTimeout(timer); release(); };
   }, [city.id]);
 
   // The hovered landmark's whole building turns cyan; every other landmark returns to its normal colour.

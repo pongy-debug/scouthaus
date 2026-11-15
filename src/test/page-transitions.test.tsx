@@ -14,7 +14,7 @@ import { SpaceTransition } from "@/components/hh/SpaceTransition";
 import { resetSpaceFlight } from "@/lib/hh/transition";
 afterEach(() => { cleanup(); resetSpaceFlight(); vi.useRealTimers(); vi.clearAllMocks(); });
 
-it.each([["/", "/scanner"], ["/scanner", "/find"], ["/find", "/find/durham"], ["/tour/first-ruth-house", "/"]])("fades %s to %s before navigation and reveals after resolution", async (from, to) => {
+it.each([["/find", "/find/durham"], ["/tour/first-ruth-house", "/"]])("fades %s to %s before navigation and reveals after resolution", async (from, to) => {
   vi.useFakeTimers();
   render(<><PageTransitions /><SpaceTransition /></>);
   let result: boolean | Promise<boolean> = true;
@@ -38,4 +38,19 @@ it("leaves same-page map/filter navigation immediate", () => {
   render(<PageTransitions />);
   expect(state.block!({ current: { pathname: "/find/durham" }, next: { pathname: "/find/durham/" } })).toBe(false);
   expect(document.documentElement).not.toHaveClass("space-lock");
+});
+
+it.each(["/", "/find", "/find/durham", "/find/newcastle"])("never delays scanner navigation to or from %s", (path) => {
+  render(<PageTransitions />);
+  expect(state.block!({ current: { pathname: path }, next: { pathname: "/scanner" } })).toBe(false);
+  expect(state.block!({ current: { pathname: "/scanner" }, next: { pathname: path } })).toBe(false);
+  expect(document.documentElement).not.toHaveClass("space-lock");
+});
+
+it("does not animate navigation when reduced motion is requested", () => {
+  vi.stubGlobal("matchMedia", () => ({ matches: true }));
+  render(<PageTransitions />);
+  expect(state.block!({ current: { pathname: "/" }, next: { pathname: "/find" } })).toBe(false);
+  expect(document.documentElement).not.toHaveClass("space-lock");
+  vi.unstubAllGlobals();
 });

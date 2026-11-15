@@ -9,6 +9,10 @@ export function PageTransitions() {
   useBlocker({
     enableBeforeUnload: false,
     shouldBlockFn: ({ current, next }) => {
+      if ([current.pathname, next.pathname].some((path) => path.replace(/\/$/, "") === "/scanner") || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        resetSpaceFlight();
+        return false;
+      }
       if (current.pathname.replace(/\/$/, "") === next.pathname.replace(/\/$/, "")) return false;
       return new Promise<boolean>((proceed) => {
         const started = startSpaceFlight({ reduced: false, navigate: () => new Promise<void>((revealed) => {

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Crumbs, SiteFooter, SiteNav } from "@/components/hh/SiteNav";
+import { Crumbs } from "@/components/hh/SiteNav";
 import { MapFallback, useWebGL } from "@/components/hh/MapFallback";
 import { PropertyDrawer } from "@/components/hh/PropertyDrawer";
 import { HouseList } from "@/components/hh/HouseList";
@@ -122,8 +122,7 @@ function CityMap({ cityId }: { cityId: string }) {
   const xray = selected && <PropertyDrawer onTour={openTour} house={selected} pinned={pinned.includes(selected.id)} onToggleCompare={() => toggleCompare(selected.id)} onClose={() => setSelectedId(null)} />;
 
   return (
-    <div className="flex min-h-screen flex-col gap-3 p-3 lg:h-screen">
-      <SiteNav />
+    <div className="flex min-h-screen flex-col gap-3 p-3 lg:h-[calc(100dvh-64px)]">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <Crumbs demo={city.id === "durham"} items={area
           ? [{ label: "Home", to: "/" }, { label: "Find House", to: "/find" }, { label: city.name, to: "/find/$city", params: { city: city.id } }, { label: area.name }]
@@ -199,7 +198,6 @@ function CityMap({ cityId }: { cityId: string }) {
           </aside>
         )}
       </div>
-      <SiteFooter />
       {city.id === "durham" && area?.id === "claypath" && selected?.id === "claypath-ruth" && !tourOpen && <div className="glass flex flex-wrap items-center justify-between gap-3 p-3">
         <div><h2 className="font-semibold">Ruth First House - Four-storey preview</h2><p className="text-xs text-muted-foreground">Green top floor: tour available. Building shape, location and floor placement are illustrative, not verified.</p></div>
         <Button onClick={openTour}>Enter top floor - Flat 4 tour</Button>

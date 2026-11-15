@@ -157,7 +157,7 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    background-image: radial-gradient(ellipse at 20% 0%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 55%);
+
   }
 }
 
@@ -202,9 +202,9 @@
 /* Find House transition: a black root overlay fades in, covers the route change, then fades out over the next page. */
 .home-intro-content { display: flex; width: 100%; flex-direction: column; align-items: center; }
 html.space-lock { overflow: hidden; }
-html.space-lock, html.space-lock body { background: #000; }
+html, body, .app-page, html.space-lock, html.space-lock body { background: var(--background); }
 .space-fx { position: fixed; inset: 0; z-index: 100; }
-.space-curtain { position: absolute; inset: 0; background: #000; }
+.space-curtain { position: absolute; inset: 0; background: var(--background); }
 .space-fx .space-stars { z-index: 1; animation: none; }
 .space-fadein, .space-fadeout { pointer-events: none; }
 .space-fadein .space-curtain { animation: space-out 2000ms ease forwards; }
@@ -337,3 +337,10 @@ html.space-lock, html.space-lock body { background: #000; }
 
 .space-star-window { position: absolute; inset: 0; }
 .scout-home[data-leaving="true"] .home-starlight { clip-path: inset(120px 0 0); }
+
+/* One base canvas across routes. Artwork remains inside the page's content. */
+.scout-home { background: var(--background); }
+.app-page { min-height: calc(100dvh - 64px); }
+@media (prefers-reduced-motion: reduce) {
+  .space-fx { display: none; }
+}

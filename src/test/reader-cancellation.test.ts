@@ -1,0 +1,20 @@
+import { afterEach, expect, it, vi } from "vitest";
+const worker = vi.hoisted(() => ({ recognize: vi.fn(), terminate: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("tesseract.js", () => ({ createWorker: async () => worker }));
+vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({ GlobalWorkerOptions: {} }));
+import { readImage } from "@/lib/hh/pdf";
+afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
+it("cancels an active OCR job and schedules worker termination without waiting for it", async () => {
+  vi.useFakeTimers();
+  worker.recognize.mockImplementation(() => new Promise(() => {}));
+  const controller = new AbortController();
+  const reading = readImage(new File(["image"], "contract.png"), () => {}, controller.signal);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(worker.recognize).toHaveBeenCalledOnce();
+  const rejected = expect(reading).rejects.toMatchObject({ name: "AbortError" });
+  controller.abort();
+  expect(worker.terminate).not.toHaveBeenCalled();
+  await rejected;
+  await vi.runAllTimersAsync();
+  expect(worker.terminate).toHaveBeenCalledOnce();
+});

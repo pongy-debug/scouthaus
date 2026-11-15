@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ContractScanner } from "@/components/hh/ContractScanner";
-import { SiteFooter, SiteNav } from "@/components/hh/SiteNav";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({
@@ -14,14 +13,15 @@ export const Route = createFileRoute("/scanner")({
     ],
   }),
   component: Scanner,
+  pendingComponent: Scanner,
+  pendingMs: 0,
+  pendingMinMs: 0,
 });
 
 function Scanner() {
   return (
     <div className="flex min-h-screen flex-col gap-3 p-3 ">
-      <SiteNav />
       <main className="mx-auto w-full max-w-5xl flex-1 px-1 sm:px-4"><ContractScanner /></main>
-      <SiteFooter />
     </div>
   );
 }

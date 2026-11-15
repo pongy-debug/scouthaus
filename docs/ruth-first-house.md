@@ -11,3 +11,7 @@ Flat 7's detailed field says 4 bedrooms but catalogue says 5; filters use 4 pend
 Most adverts give Providence Row, DH1 1RP. Flat 4 instead gives DH1 1RS; confirm its address with the agent. Flat 7's structured area incorrectly differs from the Claypath catalogue and description. The building uses the majority postcode's postcodes.io centroid (54.778619, -1.572349), explicitly approximate, not a surveyed building pin.
 
 Gallery images are hotlinked from Flat 1 and credited accordingly. The user's existing four-photo 3D tour is linked as an approximate building preview; its flat number has not been confirmed. No energy or condition measurements or licence claims were inferred from these adverts.
+
+## Replacement tour
+
+The user supplied `flat4-3d-model.html` on 15 November 2026 to replace the previous reconstruction. The existing tour route now embeds this file in a script-only sandbox and offers this HTML as the download. It includes all three bedrooms and room controls. The original photos remain available separately. The supplied HTML loads Three.js r128 from cdnjs and fonts from Google; it requires internet access. Old model source/assets are retained for history but are no longer used by the tour page.

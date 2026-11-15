@@ -44,7 +44,7 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
       </div>
       {house.tourPath && <Stat title="Virtual tour">
         <Button asChild size="sm"><Link to={house.tourPath}>Explore in 3D</Link></Button>
-        <p className="mt-2 text-xs text-muted-foreground">Photo-based kitchen and living room preview. Approximate layout; the flat number is not confirmed, and other flats may differ.</p>
+        <p className="mt-2 text-xs text-muted-foreground">Explore the supplied Flat 4 model, including three bedrooms, kitchen and living room. Illustrative layout; other flats may differ.</p>
       </Stat>}
       {advert && (
         <Stat title="Viewing">

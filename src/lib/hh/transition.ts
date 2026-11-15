@@ -1,15 +1,14 @@
 // Home → Find House transition. One small store drives the phases so the home page and the root-level black overlay
 // (which survives the route change) follow the same clock.
 //
-//   shrink   1200ms   the whole home page shrinks to nothing; the page behind it is pure black
-//   black    300ms    hold on a completely black screen; the overlay is opaque from here on
+//   fade     150ms    the screen fades to black (no zoom); the overlay is opaque from here on
 //   (navigate — hidden behind the black overlay)
 //   fadein   2000ms   the Find House page fades in from black
-// Reduced motion: fade (150ms to black) → navigate → fadeout (150ms from black).
+// Reduced motion: the same, with a 150ms fade back in (fadeout) instead of the 2s one.
 import { useSyncExternalStore } from "react";
 
-export type SpacePhase = "idle" | "shrink" | "black" | "fadein" | "fade" | "fadeout";
-export const SPACE_MS = { shrink: 1200, hold: 300, fadeIn: 2000, reducedHalf: 150 } as const;
+export type SpacePhase = "idle" | "fadein" | "fade" | "fadeout";
+export const SPACE_MS = { fadeOut: 150, fadeIn: 2000, reducedIn: 150 } as const;
 
 let phase: SpacePhase = "idle";
 let timers: ReturnType<typeof setTimeout>[] = [];
@@ -25,18 +24,15 @@ const later = (ms: number, fn: () => void) => { timers.push(setTimeout(fn, ms));
 /** Start the transition. `navigate` performs the route change once the screen is black. False if one is already running. */
 export function startSpaceFlight({ reduced, navigate }: { reduced: boolean; navigate: () => Promise<unknown> | void }): boolean {
   if (phase !== "idle") return false;
-  const [dark, reveal, revealMs] = reduced ? (["fade", "fadeout", SPACE_MS.reducedHalf] as const) : (["black", "fadein", SPACE_MS.fadeIn] as const);
-  const go = () => {
+  const [reveal, revealMs] = reduced ? (["fadeout", SPACE_MS.reducedIn] as const) : (["fadein", SPACE_MS.fadeIn] as const);
+  set("fade");
+  later(SPACE_MS.fadeOut, () => {
     void Promise.resolve(navigate()).catch(() => {}).then(() => {
-      if (phase !== dark) return;
+      if (phase !== "fade") return;
       set(reveal);
       later(revealMs, () => set("idle"));
     });
-  };
-  if (reduced) { set("fade"); later(SPACE_MS.reducedHalf, go); return true; }
-  set("shrink");
-  later(SPACE_MS.shrink, () => set("black"));
-  later(SPACE_MS.shrink + SPACE_MS.hold, go);
+  });
   return true;
 }
 

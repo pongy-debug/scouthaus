@@ -204,12 +204,10 @@
 .home-scroll-hint { position: absolute; bottom: 42px; z-index: 1; display: flex; align-items: center; gap: 12px; color: var(--home-muted); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 @keyframes home-twinkle { 0%, 100% { opacity: 0.12; } 50% { opacity: 0.65; } }
 
-/* Find House transition: the whole home page shrinks away to nothing over pure black; a black root overlay then covers the route change. */
+/* Find House transition: a black root overlay fades in, covers the route change, then fades out over the next page. */
 .home-intro-content { display: flex; width: 100%; flex-direction: column; align-items: center; }
-.home-leaving { pointer-events: none; will-change: transform; animation: home-shrink 1200ms cubic-bezier(0.7, 0, 0.84, 0) forwards; }
 html.space-lock { overflow: hidden; }
 html.space-lock, html.space-lock body { background: #000; }
-@keyframes home-shrink { to { transform: scale(0); } }
 .space-fx { position: fixed; inset: 0; z-index: 100; background: #000; }
 .space-fadein { pointer-events: none; animation: space-out 2000ms ease forwards; }
 .space-fade { animation: space-in 150ms ease both; }

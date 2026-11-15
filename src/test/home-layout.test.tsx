@@ -59,14 +59,14 @@ describe("home layout", () => {
     expect(zoomedArt).toHaveAttribute("transform", "scale(1.8)");
   });
 
-  it.each([[false, 1500], [true, 1500]])("shrinks to black and only then opens Find House (reduced motion: %s)", async (reduced, ms) => {
+  it.each([[false, 150], [true, 150]])("fades to black without zooming and only then opens Find House (reduced motion: %s)", async (reduced, ms) => {
     vi.useFakeTimers();
     vi.stubGlobal("matchMedia", () => ({ matches: reduced, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     const view = render(<><Home /><SpaceTransition /></>);
     const find = screen.getByRole("link", { name: "Find House" });
     fireEvent.click(find);
     fireEvent.click(find);
-    expect(!!view.container.querySelector(".home-leaving")).toBe(true);
+    expect(view.container.querySelector(".home-leaving")).toBeNull();
     expect(document.documentElement).toHaveClass("space-lock");
     expect(find).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("link", { name: "Contract Check" })).toHaveAttribute("aria-disabled", "true");
@@ -87,7 +87,7 @@ describe("home layout", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     const first = render(<Home />);
     fireEvent.click(screen.getByRole("link", { name: "Find House" }));
-    await act(async () => { await vi.advanceTimersByTimeAsync(900); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
     first.unmount();
     const again = render(<Home />);
     expect(again.container.querySelector(".home-leaving")).toBeNull();

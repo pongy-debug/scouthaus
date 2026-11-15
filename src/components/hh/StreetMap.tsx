@@ -1,7 +1,7 @@
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type MapGeoJSONFeature } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
-import { AVAIL_LABEL, advertUrl, areaCircle, areaStats, bedsOf, riskLabel, riskOf, type Area, type Availability, type City, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
+import { AVAIL_LABEL, advertUrl, areaCircle, areaStats, bedsOf, rentOf, riskLabel, riskOf, type Area, type Availability, type City, type House, type Risk, type RiskLayer } from "@/lib/hh/find";
 
 // MapLibre paint needs concrete colours (mirrors design tokens)
 export const AVAIL_COLOR: Record<Availability, string> = { available: "#10B981", "under-offer": "#F59E0B", let: "#64748B" };
@@ -196,7 +196,7 @@ export default function StreetMap(props: StreetMapProps) {
       } else if (h) {
         setTip({ x: e.point.x, y: e.point.y, html: <>
           <div className="font-semibold">{h.name}</div><div className="text-muted-foreground">{h.landlord} — {h.address}{h.approximate && " · approximate location"}</div>
-          <div className="mt-1 flex justify-between gap-3"><span style={{ color: AVAIL_COLOR[h.availability] }}>● {AVAIL_LABEL[h.availability]}</span><span>£{h.rent} pppw · {bedsOf(h)}</span></div>
+          <div className="mt-1 flex justify-between gap-3"><span style={{ color: AVAIL_COLOR[h.availability] }}>● {AVAIL_LABEL[h.availability]}</span><span>{rentOf(h)} · {bedsOf(h)}</span></div>
           <div style={{ color: RISK_COLOR[riskOf(h, P.layer)] }}>{riskLabel(h, P.layer)}</div>
           {h.approximateLocation && <div>Approximate location · postcode centre</div>}
           <div className="text-primary">Click for more info →</div></> });
@@ -248,7 +248,7 @@ export default function StreetMap(props: StreetMapProps) {
     if (!m || !loaded || !h) return;
     const tag = document.createElement("div");
     tag.className = "pointer-events-none whitespace-nowrap rounded-md border border-primary bg-popover px-2 py-1 font-mono text-[11px] text-popover-foreground shadow-lg";
-    tag.textContent = `${h.name} · £${h.rent} pppw · ${bedsOf(h)} · ${AVAIL_LABEL[h.availability]}`;
+    tag.textContent = `${h.name} · ${rentOf(h)} · ${bedsOf(h)} · ${AVAIL_LABEL[h.availability]}`;
     if (h.approximateLocation || h.approximate) tag.textContent += " · Approximate location";
     const url = advertUrl(h);
     if (url) {

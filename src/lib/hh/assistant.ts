@@ -7,7 +7,7 @@
 // and score in a reply is a fact from the dataset, not something the model wrote.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { AVAIL_LABEL, CITIES, applyFilters, bedRange, bedsLabel, bedsOf, defaultFilters, hasTelemetry, rentRange, riskLabel, trueMonthlyCost, type City, type Filters, type House, type RiskLayer } from "./find";
+import { AVAIL_LABEL, CITIES, applyFilters, bedRange, bedsLabel, bedsOf, rentOf, defaultFilters, hasTelemetry, rentRange, riskLabel, trueMonthlyCost, type City, type Filters, type House, type RiskLayer } from "./find";
 
 // Chat needs to feel instant, so the fast model goes first and the slower one is only a backup.
 const CHAT_MODELS: [string, number][] = [["gemini-3.5-flash-lite", 15_000], ["gemini-3.6-flash", 45_000]];
@@ -73,10 +73,10 @@ export type ChatTurn = { ok: true; reply: string; action: MapAction } | { ok: fa
 
 const areaName = (city: City, id: string) => city.areas.find((a) => a.id === id)?.name ?? id;
 const facts = (city: City, h: House, sort: Sort) => {
-  if (!hasTelemetry(h)) return `${h.name} (${areaName(city, h.area)}, £${h.rent} pppw, ${bedsOf(h)}, ${AVAIL_LABEL[h.availability]}${h.availableFrom ? ` from ${h.availableFrom}` : ""})`;
+  if (!hasTelemetry(h)) return `${h.name} (${areaName(city, h.area)}, ${rentOf(h)}, ${bedsOf(h)}, ${AVAIL_LABEL[h.availability]}${h.availableFrom ? ` from ${h.availableFrom}` : ""})`;
   const x = h.xray;
   const extra = sort === "noise" ? `noise ${x.noise}/100` : sort === "damp" ? `damp ${x.damp}/100` : sort === "heating" ? `heating £${x.bill}/mo` : sort === "epc" ? `EPC ${x.epc}` : sort === "trueCost" ? `true cost £${trueMonthlyCost(h).total}/mo` : AVAIL_LABEL[h.availability];
-  return `${h.name} (${areaName(city, h.area)}, £${h.rent} pppw, ${bedsOf(h)}, ${extra})`;
+  return `${h.name} (${areaName(city, h.area)}, ${rentOf(h)}, ${bedsOf(h)}, ${extra})`;
 };
 
 /** What the student is looking at when they send a message. */
@@ -110,7 +110,7 @@ export function resolveTurn(city: City, out: z.infer<typeof Output>, current: Cu
   if (named) {
     const x = named.xray;
     lines.push(hasTelemetry(named)
-      ? `${named.name} — ${areaName(city, named.area)}: £${named.rent} pppw, ${bedsOf(named)}, ${AVAIL_LABEL[named.availability]}, EPC ${x.epc}, heating £${x.bill}/mo, noise ${x.noise}/100, damp ${x.damp}/100, true cost £${trueMonthlyCost(named).total}/mo per person.`
+      ? `${named.name} — ${areaName(city, named.area)}: ${rentOf(named)}, ${bedsOf(named)}, ${AVAIL_LABEL[named.availability]}, EPC ${x.epc}, heating £${x.bill}/mo, noise ${x.noise}/100, damp ${x.damp}/100, true cost £${trueMonthlyCost(named).total}/mo per person.`
       : `${facts(city, named, "none")}. ${riskLabel(named, "epc")}; ${riskLabel(named, "crime").toLowerCase()}; ${riskLabel(named, "hmo").toLowerCase()}. Heating cost, noise and damp have not been measured. View the original advert for current availability.`);
     if (!applyFilters([named], filters).length) { filters = defaultFilters(city); action.filters = filters; lines.push("It is outside your filters, so I cleared them to show it."); }
     action.houseId = named.id;

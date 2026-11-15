@@ -13,6 +13,7 @@ export function SiteNav() {
       <nav className="flex flex-wrap gap-1">
         <Link to="/find" className={cls} activeProps={active}>Find House</Link>
         <Link to="/scanner" className={cls} activeProps={active}>Contract Check</Link>
+        <Link to="/tour/first-ruth-house" className={cls} activeProps={active}>Virtual Tour</Link>
       </nav>
     </header>
   );

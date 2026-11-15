@@ -91,11 +91,11 @@ function CityMap({ cityId }: { cityId: string }) {
   // The list and the X-Ray share one slot, so an open drawer always collapses the list.
   const tourOpen = city.id === "durham" && area?.id === "claypath" && search.tour === true;
   const showList = listOpen && !selected && !tourOpen;
-  const openTour = () => { setSelectedId(null); startSpaceFlight({ reduced: false, navigate: () => nav({ search: { area: "claypath", tour: true } }) }); };
-  const closeTour = () => { void nav({ search: { area: "claypath" } }); };
+  const openTour = () => { setSelectedId("claypath-ruth"); startSpaceFlight({ reduced: false, navigate: () => nav({ search: { area: "claypath", tour: true } }) }); };
+  const closeTour = () => { setSelectedId("claypath-ruth"); void nav({ search: { area: "claypath" } }); };
 
   const setArea = (id: string | null) => void nav({ search: id ? { area: id } : {} });
-  const pickArea = (id: string) => { if (city.id === "durham" && id === "claypath") setListOpen(false); setSelectedId(null); setArea(id); };
+  const pickArea = (id: string) => { setSelectedId(null); setArea(id); };
   const openHouse = (h: House) => { setHoverId(null); setSelectedId(h.id); if (h.area !== area?.id) setArea(h.area); };
   const toggleList = () => { if (selected) { setSelectedId(null); setListOpen(true); } else setListOpen((o) => !o); };
   const toggleCompare = (id: string) => setPinned((p) => {
@@ -193,14 +193,14 @@ function CityMap({ cityId }: { cityId: string }) {
         <AskMap cityId={city.id} areas={city.areas} houses={city.houses} onAction={applyAction}
           state={{ filters, layer, areaId: area?.id ?? null, selectedId: selected?.id ?? null }} />
 
-        {!mobile && (showList || selected) && (
+        {!mobile && !tourOpen && (showList || selected) && (
           <aside className="glass absolute bg-popover/95 bottom-9 right-3 top-14 z-20 flex w-[340px] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden" aria-label={selected ? "Property info" : "Houses"}>
             {selected ? <div className="min-h-0 flex-1 overflow-y-auto p-3">{xray}</div> : list}
           </aside>
         )}
       </div>
       <SiteFooter />
-      {city.id === "durham" && area?.id === "claypath" && !tourOpen && <div className="glass flex flex-wrap items-center justify-between gap-3 p-3">
+      {city.id === "durham" && area?.id === "claypath" && selected?.id === "claypath-ruth" && !tourOpen && <div className="glass flex flex-wrap items-center justify-between gap-3 p-3">
         <div><h2 className="font-semibold">Ruth First House - Four-storey preview</h2><p className="text-xs text-muted-foreground">Green top floor: tour available. Building shape, location and floor placement are illustrative, not verified.</p></div>
         <Button onClick={openTour}>Enter top floor - Flat 4 tour</Button>
       </div>}
@@ -221,7 +221,7 @@ function CityMap({ cityId }: { cityId: string }) {
               {list}
             </DrawerContent>
           </Drawer>
-          <Drawer shouldScaleBackground={false} open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
+          <Drawer shouldScaleBackground={false} open={!!selected && !tourOpen} onOpenChange={(o) => !o && setSelectedId(null)}>
             <DrawerContent className="max-h-[85vh]">
               <DrawerTitle className="sr-only">Property info</DrawerTitle>
               <DrawerDescription className="sr-only">Costs, EPC, HMO licensing, noise and reviews for the selected house</DrawerDescription>

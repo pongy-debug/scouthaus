@@ -130,6 +130,10 @@ it("5 · landmarks never appear in the house list or change the house count", as
 it("opens the top-floor tour within Find House and returns to the same Claypath map", async () => {
   render(<Harness cityId="durham" area="claypath" />);
   await screen.findByTestId("map");
+  expect(screen.queryByRole("button", { name: /Enter top floor/ })).not.toBeInTheDocument();
+  const ruth = document.querySelector<HTMLButtonElement>('[data-house="claypath-ruth"]')!;
+  fireEvent.click(ruth);
+  expect(screen.getByTestId("map")).toHaveAttribute("data-selected", "claypath-ruth");
   fireEvent.click(screen.getByRole("button", { name: /Enter top floor/ }));
   expect(await screen.findByTitle("Ruth First House Flat 4 interactive 3D tour")).toHaveAttribute("src", "/tours/first-ruth-house/flat4-3d-model.html");
   fireEvent.click(screen.getByRole("button", { name: "Back to building" }));

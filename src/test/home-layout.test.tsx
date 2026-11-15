@@ -37,7 +37,8 @@ describe("home layout", () => {
     expect(screen.queryByText("Durham, United Kingdom")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Scroll to explore/ })).toHaveAttribute("href", "#neighbourhood");
   });
-  it("starts the story and magnifier together when the second screen enters view", () => {
+  it.each([false, true])("starts the story and magnifier together even with reduced motion: %s", (reduced) => {
+    vi.stubGlobal("matchMedia", () => ({ matches: reduced }));
     let notify: IntersectionObserverCallback = () => {};
     const observe = vi.fn();
     const disconnect = vi.fn();
@@ -57,23 +58,15 @@ describe("home layout", () => {
     expect(zoomedArt).toHaveAttribute("href", "#home-house-artwork");
     expect(zoomedArt).toHaveAttribute("transform", "scale(1.8)");
   });
-  it("shows static content without the scan when reduced motion is requested", () => {
-    const observer = vi.fn();
-    vi.stubGlobal("IntersectionObserver", observer);
-    vi.stubGlobal("matchMedia", () => ({ matches: true }));
-    render(<Home />);
-    expect(screen.getByRole("region", { name: "Durham explorer preview" })).toHaveAttribute("data-reveal", "static");
-    expect(observer).not.toHaveBeenCalled();
-  });
 
-  it.each([[false, 1500], [true, 150]])("shrinks to black and only then opens Find House (reduced motion: %s)", async (reduced, ms) => {
+  it.each([[false, 150], [true, 150]])("fades to black without zooming and only then opens Find House (reduced motion: %s)", async (reduced, ms) => {
     vi.useFakeTimers();
     vi.stubGlobal("matchMedia", () => ({ matches: reduced, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     const view = render(<><Home /><SpaceTransition /></>);
     const find = screen.getByRole("link", { name: "Find House" });
     fireEvent.click(find);
     fireEvent.click(find);
-    expect(!!view.container.querySelector(".home-leaving")).toBe(!reduced);
+    expect(view.container.querySelector(".home-leaving")).toBeNull();
     expect(document.documentElement).toHaveClass("space-lock");
     expect(find).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("link", { name: "Contract Check" })).toHaveAttribute("aria-disabled", "true");
@@ -84,8 +77,8 @@ describe("home layout", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: "/find" });
     // …stays up across it while the next page fades in, and everything returns to normal afterwards.
-    expect(document.querySelector(reduced ? ".space-fadeout" : ".space-fadein")).not.toBeNull();
-    await act(async () => { await vi.advanceTimersByTimeAsync(reduced ? 150 : 2000); });
+    expect(document.querySelector(".space-fadein")).not.toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(document.querySelector(".space-fx")).toBeNull();
     expect(document.documentElement).not.toHaveClass("space-lock");
   });
@@ -94,7 +87,7 @@ describe("home layout", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     const first = render(<Home />);
     fireEvent.click(screen.getByRole("link", { name: "Find House" }));
-    await act(async () => { await vi.advanceTimersByTimeAsync(900); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
     first.unmount();
     const again = render(<Home />);
     expect(again.container.querySelector(".home-leaving")).toBeNull();

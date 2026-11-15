@@ -19,6 +19,9 @@ export interface House {
   approximate?: boolean;
   /** Shown instead of "N bed" when the advert is inconsistent about the bedroom count. */
   bedroomsNote?: string;
+  /** Building entry: filter against actual advertised flat sizes and starting rents. */
+  flatOptions?: { bedrooms: number; rent: number }[];
+  tourPath?: "/tour/first-ruth-house";
   /** Photo credit text; defaults to the agent name. */
   photoCredit?: string;
   /** EPC, heating, damp, noise and rent-benchmark telemetry shown in the X-Ray drawer. */
@@ -117,6 +120,25 @@ const sturents = (path: string, street: string, postcode: string, landlord: stri
 // main photo are as advertised that day; Loc8me adverts mostly give the street without a house number. Listings that
 // share one advertised map point are spaced ~8 m apart so each pin can be clicked.
 const DURHAM_HOUSES: House[] = [
+  {
+    id: "claypath-ruth", name: "Ruth First House", landlord: "Q Student",
+    address: "Ruth First House, Providence Row", area: "claypath", cityId: "durham", postcode: "DH1 1RP",
+    lat: 54.778619, lng: -1.572349, approximateLocation: true,
+    availability: "available", availabilityNote: "Flats advertised for July 2027",
+    rent: 225, bedrooms: 2, bedroomsNote: "2–4 bed flats (Flat 7 count needs confirmation)",
+    flatOptions: [{ bedrooms: 2, rent: 250 }, { bedrooms: 3, rent: 225 }, { bedrooms: 4, rent: 235 }],
+    rentNote: "Building with separate flats, advertised at £225–£250 pppw. Bills excluded except Flat 7. Flat 7 is described as both 4 and 5 bedrooms; confirm with Q Student.",
+    locationNote: "Claypath · Providence Row. Postcode-centre pin; exact building position not verified.",
+    sourceUrl: "https://qstudent.co.uk/index.php/available-now/claypath",
+    photoCredit: "Q Student (Flat 1; other flats vary)",
+    photos: [
+      "https://qstudent.co.uk/images/bt_portfolio/80/large/6be06ba60e72cd8d3b8d760f82f42e0f.jpeg",
+      "https://qstudent.co.uk/images/bt_portfolio/80/large/dbc44be7e5d9fdc43a7298210db3a0fd.jpeg",
+      "https://qstudent.co.uk/images/bt_portfolio/80/large/f17f74632ccc323dfdb851e22db16ad7.jpeg",
+    ],
+    tourPath: "/tour/first-ruth-house", telemetryStatus: "unchecked",
+    xray: { id: "claypath-ruth", address: "Ruth First House, Providence Row", postcode: "DH1 1RP", area: "Claypath", tag: "Building · separate flats", epc: "G", epcScore: 0, bill: 0, billFactors: [], damp: 0, dampNote: "Not checked", noise: 0, rent: 225, median: 0 },
+  },
   loc8me("renny-street", "Renny Street", "Renny Street", "claypath", "DH1 1JN", 54.77946, -1.56579, "Available 01/07/2027", 195, 5, "2025/10/9075366.jpg"),
   loc8me("mayorswell-close", "Mayorswell Close", "Mayorswell Close", "claypath", "DH1 1JU", 54.78021, -1.56736, "Available 01/07/2027", 198, 6, "2025/10/8593585.jpg", "D"),
   loc8me("ravensworth-terrace-l", "Ravensworth Terrace (L)", "7b Ravensworth Terrace", "claypath", "DH1 1QP", 54.77783, -1.5692, "Available 01/07/2027", 203, 4, "2025/11/7926536.jpg"),
@@ -288,6 +310,7 @@ export const RISK_LAYERS: { id: RiskLayer; label: string; legend: Partial<Record
 
 /** "4 bed", or the listing's own note when the advert is unclear about the count. */
 export const bedsOf = (hs: House) => hs.bedroomsNote ?? `${hs.bedrooms} bed`;
+export const rentOf = (hs: House) => `${hs.flatOptions ? "From " : ""}£${hs.rent} pppw`;
 
 /** Mandatory HMO licensing in England applies to 5+ occupants in 2+ households. */
 export const needsHmoLicence = (hs: House) => hs.bedrooms >= 5;
@@ -303,6 +326,7 @@ export function epcWorst(hs: House): Epc | null {
  * "unknown" otherwise. Crime is relative to the city centre: under a third of its reports is low, over two thirds high.
  */
 function checkedRisk(hs: House, layer: RiskLayer): Risk {
+  if (layer === "hmo" && hs.flatOptions) return "unknown";
   if (layer === "hmo") return needsHmoLicence(hs) ? "med" : "low";
   if (layer === "epc") {
     const groups = new Set((hs.checked?.epc?.bands ?? []).map(epcGroup));
@@ -329,6 +353,7 @@ export function riskOf(hs: House, layer: RiskLayer): Risk {
 }
 
 export function riskLabel(hs: House, layer: RiskLayer): string {
+  if (layer === "hmo" && hs.flatOptions) return "HMO status depends on the flat; not checked yet";
   if (!hasTelemetry(hs)) {
     const bands = hs.checked?.epc?.bands ?? [], crime = hs.checked?.crime;
     const epc = checkedRisk(hs, "epc") === "unknown" ? "EPC not checked yet" : bands.length === 1 ? `EPC ${bands[0]} (national register)` : `EPC ${bands[0]}–${bands[bands.length - 1]} at this postcode`;
@@ -376,7 +401,7 @@ export function bedsLabel(f: Pick<Filters, "minBeds" | "maxBeds">, range: { min:
   return f.minBeds === f.maxBeds ? `${f.minBeds}` : `${f.minBeds}–${f.maxBeds}`;
 }
 export function applyFilters(hs: House[], f: Filters) {
-  return hs.filter((x) => x.rent <= f.maxRent && x.bedrooms >= f.minBeds && x.bedrooms <= f.maxBeds && (f.epc === "any" || (epcWorst(x) ?? "Z") <= f.epc)
+  return hs.filter((x) => (x.flatOptions ?? [x]).some((flat) => flat.rent <= f.maxRent && flat.bedrooms >= f.minBeds && flat.bedrooms <= f.maxBeds) && (f.epc === "any" || (epcWorst(x) ?? "Z") <= f.epc)
     && (f.availability === "all" || x.availability === f.availability) && (f.type === "all" || typeOf(x) === f.type));
 }
 

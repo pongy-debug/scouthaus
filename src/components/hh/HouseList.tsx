@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { ExternalLink } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { HouseThumb } from "@/components/hh/HousePhoto";
-import { AVAIL_LABEL, advertUrl, bedsOf, type Area, type Availability, type House } from "@/lib/hh/find";
+import { AVAIL_LABEL, advertUrl, bedsOf, rentOf, type Area, type Availability, type House } from "@/lib/hh/find";
 
 const BADGE: Record<Availability, string> = {
   available: "border-success/50 bg-success/15 text-success",
@@ -28,7 +28,7 @@ export function HouseList({ groups, grouped, hoverId, selectedId, availableOnly,
         <Switch checked={availableOnly} onCheckedChange={onAvailableOnly} /> Available only
       </label>
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5" onMouseLeave={() => onHover(null)}>
-        {empty && <p className="p-3 text-xs text-muted-foreground">No houses match the current filters.</p>}
+        {empty && <p className="p-3 text-xs text-muted-foreground">No houses match your search and filters in this area. Try another search, adjust the filters or return to all areas.</p>}
         {groups.map((g) => g.houses.length > 0 && (
           <section key={g.area.id}>
             {grouped && <h3 className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{g.area.name} · {g.houses.length}</h3>}
@@ -41,7 +41,7 @@ export function HouseList({ groups, grouped, hoverId, selectedId, availableOnly,
                     <HouseThumb house={h} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">{h.name}</span>
-                      <span className="block truncate font-mono text-[11px] text-muted-foreground">{h.locationNote ?? g.area.name} · £{h.rent} pppw · {h.propertyType === "studio" ? "Studio" : bedsOf(h)}</span>
+                      <span className="block truncate font-mono text-[11px] text-muted-foreground">{h.locationNote ?? g.area.name} · {rentOf(h)} · {h.propertyType === "studio" ? "Studio" : bedsOf(h)}</span>
                     </span>
                     <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${BADGE[h.availability]}`}>{AVAIL_LABEL[h.availability]}</span>
                   </button>

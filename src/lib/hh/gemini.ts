@@ -2,7 +2,7 @@
 // never reaches the browser. The client falls back to the local rules when this returns ok: false (no key,
 // offline, quota, bad response).
 //
-// Contracts are sent as original text or inline PDF bytes, only to Gemini. Never log or store document content.
+// Contracts are sent as text (already redacted in the browser, see ScannerSession) or inline PDF bytes, only to Gemini. Never log or store document content.
 // The API key stays server-side. Email drafting retains its separate placeholder handling.
 //
 // analyseContract — red flags and risk score · summariseContract — plain-English summary ·

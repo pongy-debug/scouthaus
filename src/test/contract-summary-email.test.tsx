@@ -48,6 +48,7 @@ async function review() {
   render(<ContractScanner />);
   fireEvent.change(screen.getByLabelText("Or paste your contract"), { target: { value: SAMPLES.predatory.text } });
   fireEvent.click(screen.getByRole("button", { name: "Check my contract" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Analyse redacted contract/ }));
   return screen.findByRole("region", { name: "Your contract review" });
 }
 async function openEmail() {

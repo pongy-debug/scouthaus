@@ -16,13 +16,14 @@ const noSummary = { ok: false, reason: "no-key", message: "No key" };
 const paste = async (text: string) => {
   fireEvent.change(screen.getByLabelText("Or paste your contract"), { target: { value: text } });
   fireEvent.click(screen.getByRole("button", { name: /Check my contract/ }));
+  fireEvent.click(await screen.findByRole("button", { name: /Analyse redacted contract/ }));
   await screen.findByRole("region", { name: "Your contract review" });
 };
 
-it("shows quote statuses, highlights the quoted text, and lets the user choose between multiple matches", async () => {
+it("shows quote statuses, highlights the original text behind a redacted quote, and lets the user choose between multiple matches", async () => {
   const contract = "Tenant: Alice Brown\n1. Alice Brown must pay £180 for cleaning.\n2. The landlord repairs the boiler.\n3. Rent is £168 per week.\n4. No pets.\n5. No pets.";
   analyseContract.mockResolvedValue(answer(
-    makeFlag("correct", "1", "Alice Brown must pay £180 for cleaning."),
+    makeFlag("correct", "1", "[TENANT_1] must pay £180 for cleaning."),
     makeFlag("wrong-number", "9", "The landlord repairs the boiler."),
     makeFlag("missing", "3", "Rent is £198 per week."),
     makeFlag("repeated", "4", "No pets."),
@@ -34,10 +35,12 @@ it("shows quote statuses, highlights the quoted text, and lets the user choose b
   expect(within(card("correct")).getByText("Original text verified")).toBeVisible();
   expect(within(card("wrong-number")).getByText("Clause number needs checking")).toBeVisible();
   expect(within(card("missing")).getByText("Original text match needs checking")).toBeVisible();
+  expect(analyseContract.mock.calls[0]![0].data.text).not.toContain("Alice Brown");
 
   fireEvent.click(within(card("correct")).getByRole("button", { name: "View original" }));
   const source = screen.getByRole("region", { name: "Contract text" });
   expect(source.querySelector("mark")).toHaveTextContent("Alice Brown must pay £180 for cleaning.");
+  expect(source.querySelector("mark")).not.toHaveTextContent("[TENANT_1]");
   expect(source.querySelector('[aria-current="location"]')).toHaveAttribute("data-clause", "1");
 
   fireEvent.click(within(card("wrong-number")).getByRole("button", { expanded: false }));
@@ -56,8 +59,8 @@ it("shows quote statuses, highlights the quoted text, and lets the user choose b
   expect(source).toHaveTextContent("Rent is £168 per week.");
 });
 
-it("re-checks the contract with corrected text, and cancelling an edit changes nothing", async () => {
-  const contract = "1. Rent is £168 per week.\n2. No pets.";
+it("sends corrected text back through the privacy check, and cancelling an edit changes nothing", async () => {
+  const contract = "Tenant: Alice Brown\n1. Rent is £168 per week.\n2. No pets.";
   analyseContract.mockResolvedValue(answer(makeFlag("pets", "2", "No pets.")));
   summariseContract.mockResolvedValue(noSummary);
   render(<ContractScanner />);
@@ -76,9 +79,16 @@ it("re-checks the contract with corrected text, and cancelling an edit changes n
   fireEvent.click(screen.getByRole("button", { name: "Edit text" }));
   fireEvent.change(editor(), { target: { value: corrected } });
   fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  await waitFor(() => expect(analyseContract).toHaveBeenLastCalledWith({ data: { text: corrected } }));
-  expect(summariseContract).toHaveBeenLastCalledWith({ data: { text: corrected } });
+  expect(await screen.findByLabelText("Redacted contract preview")).toHaveTextContent("£198");
+  expect(analyseContract).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: /Analyse redacted contract/ }));
+  await waitFor(() => expect(analyseContract).toHaveBeenCalledTimes(2));
+  const sent = analyseContract.mock.calls[1]![0].data.text as string;
+  expect(sent).toContain("£198");
+  expect(sent).not.toContain("Alice Brown");
+  expect(summariseContract).toHaveBeenLastCalledWith({ data: { text: sent } });
   await screen.findByRole("region", { name: "Your contract review" });
+  fireEvent.click(screen.getByRole("button", { name: /Contract text/ }));
   expect(screen.getByRole("region", { name: "Contract text" })).toHaveTextContent("£198");
   expect(screen.getByRole("region", { name: "Contract text" })).not.toHaveTextContent("£168");
 });

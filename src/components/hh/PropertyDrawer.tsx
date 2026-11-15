@@ -78,7 +78,10 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
         <p className="mt-1 text-xs text-muted-foreground">{p.billFactors.join(" • ")}</p>
       </Stat>
       </>}
-      {house.flatOptions ? <Stat title="HMO licence"><p className="text-xs text-muted-foreground">Not checked. Licensing depends on the individual flat and its occupants; confirm the selected flat with Q Student.</p></Stat> : <Stat title="HMO licence">
+      {house.flatOptions ? <Stat title="HMO licence">
+        <div className={`font-mono text-sm font-semibold ${hmo ? "text-warning" : "text-primary"}`}>{hmo ? "Mandatory licence needed for the larger flats" : "No mandatory licence"}</div>
+        <p className="mt-1 text-xs text-muted-foreground">{hmo ? "A flat shared by 5+ people from 2+ households must hold an HMO licence." : "Every advertised flat is below the 5-person threshold for mandatory HMO licensing."} {house.checked?.hmo ?? "Licence status has not been checked against the council's register; confirm the selected flat with the agent."}</p>
+      </Stat> : <Stat title="HMO licence">
         <div className={`font-mono text-sm font-semibold ${hmo ? "text-warning" : "text-primary"}`}>{hmo ? "Mandatory licence needed" : "No mandatory licence"}</div>
         {city.id === "newcastle" && <p className="mt-1 text-xs text-muted-foreground">Whether this house holds its licence has not been checked against Newcastle City Council's HMO register.</p>}
         <p className="mt-1 text-xs text-muted-foreground">{hmo

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { applyFilters, defaultFilters, findCity, hasTelemetry, riskOf } from "./find";
+import { applyFilters, defaultFilters, findCity, hasTelemetry, riskLabel, riskOf } from "./find";
 
 it("shows one Ruth First House building and matches price to the chosen flat size", () => {
   const city = findCity("durham")!;
@@ -12,6 +12,11 @@ it("shows one Ruth First House building and matches price to the chosen flat siz
   expect(applyFilters(houses, { ...filters, minBeds: 3, maxBeds: 3 })).toHaveLength(1);
   expect(applyFilters(houses, { ...filters, maxRent: 250 })).toHaveLength(1);
   expect(hasTelemetry(houses[0]!)).toBe(false);
-  expect(riskOf(houses[0]!, "epc")).toBe("unknown");
-  expect(riskOf(houses[0]!, "hmo")).toBe("unknown");
+  // Checked by hand on 2026-11-15: per-flat EPC certificates (mostly D), police.uk crime and the 5+ bedroom HMO rule.
+  expect(riskOf(houses[0]!, "epc")).toBe("med");
+  expect(riskLabel(houses[0]!, "epc")).toBe("EPC D in most flats (C–E by flat)");
+  expect(riskOf(houses[0]!, "hmo")).toBe("low");
+  expect(riskOf(houses[0]!, "crime")).toBe("high");
+  expect(riskLabel(houses[0]!, "crime")).toBe("250 crime reports within 1 mile");
+  expect(riskLabel(houses[0]!, "all")).toBe("Higher risk");
 });

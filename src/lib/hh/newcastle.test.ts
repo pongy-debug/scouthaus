@@ -83,7 +83,7 @@ describe("Newcastle listings", () => {
     expect(legendFor(city, "epc").unknown).toBe("Not checked yet");
     for (const layer of ["all", "hmo", "crime"] as const) expect(legendFor(city, layer).unknown).toBeUndefined();
     const durham = findCity("durham")!;
-    for (const layer of ["all", "epc", "hmo", "crime"] as const) expect(legendFor(durham, layer).unknown).toBe("Not checked yet");
+    for (const layer of ["all", "epc", "hmo", "crime"] as const) expect(legendFor(durham, layer).unknown).toBeUndefined();
     expect(legendFor(durham, "crime").low).toBe("Quiet");
     expect(legendFor(city, "crime").low).toContain("city-centre");
   });

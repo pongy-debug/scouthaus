@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, FileUp, Mail, FileSearch, FileText, LoaderCircle, ShieldCheck, ArrowRight } from "lucide-react";
+import { ChevronDown, FileUp, Mail, FileSearch, FileText, LoaderCircle, Pencil, ShieldCheck, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { scan, type ScanResult, type Flag } from "@/lib/hh/scanner";
 import { analyseContract, summariseContract, type AiScan, type AiSummary } from "@/lib/hh/gemini";
+import { verifyQuote, type QuoteCheck, type QuoteMatch } from "@/lib/hh/quoteVerification";
 import { SAMPLES } from "@/lib/hh/samples";
 import { contractLines, findClauseLine, mapSummary, riskLevel } from "@/lib/hh/summary";
 import { SummaryPanel, type SummaryState } from "@/components/hh/SummaryPanel";
@@ -19,7 +20,8 @@ async function readFile(file: File, progress: (m: string) => void, signal: Abort
 }
 
 type Source = { by: "gemini" } | { by: "local"; why?: string };
-interface Loaded { name: string; text: string; pdf?: string }
+/** `local`: checked with the on-device rules only (built-in sample). `file`: kept so a directly reviewed PDF can be read on demand. */
+interface Loaded { name: string; text: string; local: boolean; pdf?: string; file?: File }
 
 export function ScannerSession({ initialInput }: { initialInput: { file: File } | { text: string; name: string } | { sample: true } }) {
   const [text, setText] = useState("");
@@ -31,7 +33,9 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
   const [emailFlags, setEmailFlags] = useState<Flag[] | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [textOpen, setTextOpen] = useState(false);
-  const [jump, setJump] = useState<{ line: number; n: number } | null>(null);
+  const [jump, setJump] = useState<{ line: number; n: number; range?: QuoteMatch } | null>(null);
+  const [edit, setEdit] = useState<string | null>(null); // draft of the contract text while it is being corrected
+  const [extracting, setExtracting] = useState<string | null>(null);
   const summaryRun = useRef(0);
   const [drag, setDrag] = useState(false);
   const [reading, setReading] = useState<string | null>(null);
@@ -42,14 +46,14 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
 
   const clear = () => {
     reader.current?.abort();
-    setDoc(null); summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setEmailOpen(false); setTextOpen(false); setJump(null); setOpen(null); setText(""); setAddress("the property");
+    setDoc(null); summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setEmailOpen(false); setTextOpen(false); setJump(null); setEdit(null); setExtracting(null); setOpen(null); setText(""); setAddress("the property");
     if (fileRef.current) fileRef.current.value = "";
   };
 
   // Read locally, then analyse the original contract text.
   const load = async (input: { text: string; name: string } | { file: File }, sample = false) => {
     if (reading) return;
-    summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setDoc(null);
+    summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setDoc(null); setJump(null); setEdit(null); setExtracting(null);
     reader.current?.abort();
     const controller = new AbortController(); reader.current = controller;
     let t = "text" in input ? input.text : "";
@@ -67,7 +71,7 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
         const ai = await analyseContract({ data: { pdf } });
         if (controller.signal.aborted) return;
         if (ai.ok) {
-          setDoc({ name: input.file.name, text: "", pdf });
+          setDoc({ name: input.file.name, text: "", local: false, pdf, file: input.file });
           setAddress(ai.address || "the property"); setSource({ by: "gemini" });
           setResult(ai.result); setOpen(ai.result.flags[0]?.id ?? null); setReading(null);
           void summarise({ pdf });
@@ -86,7 +90,7 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
     }
     if (controller.signal.aborted) return;
     if (!t.trim()) { toast.error("file" in input ? "Couldn't read text from that file — is it password-protected or blank? Try pasting the clauses instead" : "Paste your contract or upload a file first"); return; }
-    const loaded = { name: "file" in input ? input.file.name : input.name, text: t };
+    const loaded = { name: "file" in input ? input.file.name : input.name, text: t, local: sample && !("file" in input) };
     setDoc(loaded);
     await analyse(loaded, controller.signal, sample);
   };
@@ -125,11 +129,58 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
       const local = scan(loaded.text); setResult(local); setOpen(local.flags[0]?.id ?? null);
     }
   };
+  // Corrected text replaces the contract (and any directly reviewed PDF) and is checked again the same way.
+  const applyEdit = () => {
+    if (reading || !doc || edit === null || !edit.trim()) return;
+    const updated = edit; setEdit(null);
+    if (updated === doc.text) return;
+    reader.current?.abort();
+    const controller = new AbortController(); reader.current = controller;
+    summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setEmailOpen(false); setJump(null); setAddress("the property");
+    const loaded = { name: doc.name, text: updated, local: doc.local };
+    setDoc(loaded);
+    void analyse(loaded, controller.signal, doc.local);
+  };
+  // A PDF reviewed directly by Gemini has no text here until the user asks for it; it is then read on this device.
+  const showText = async () => {
+    const file = doc?.file;
+    if (!file || extracting) return;
+    const controller = new AbortController(); reader.current = controller;
+    setExtracting(`Reading ${file.name} on your device…`);
+    let t = "";
+    try { t = await readFile(file, (message) => { if (!controller.signal.aborted) setExtracting(message); }, controller.signal); }
+    catch { /* reported below */ }
+    if (controller.signal.aborted) return;
+    setExtracting(null);
+    if (!t.trim()) { toast.error("Couldn't read the text of that PDF on this device"); return; }
+    setDoc((d) => d && { ...d, text: t }); setTextOpen(true);
+  };
   // The email is written by Gemini from redacted flags (see EmailDrafter); a new set of flags starts a new draft.
   const draft = (flags: Flag[]) => { if (flags.map((f) => f.id).join() !== emailFlags?.map((f) => f.id).join()) setEmailFlags(flags); setEmailOpen(true); };
   // Clause numbers in the summary point into the contract text shown at the bottom of the review.
   const lines = useMemo(() => contractLines(doc?.text ?? ""), [doc]);
   const goToClause = (ref: string) => { const line = findClauseLine(lines, ref); if (line >= 0) { setTextOpen(true); setJump((j) => ({ line, n: (j?.n ?? 0) + 1 })); } };
+  // Each flag's quotation is looked up in the contract text, so the user can see exactly where it comes from.
+  const evidence = useMemo<Record<string, QuoteCheck>>(() => {
+    const source = doc?.text;
+    return source && result ? Object.fromEntries(result.flags.map((f) => [f.id, verifyQuote(source, f.text, f.clause)])) : {};
+  }, [doc, result]);
+  const lineOffsets = useMemo(() => {
+    let cursor = 0;
+    return lines.map((l) => { const start = (doc?.text ?? "").indexOf(l.text, cursor); cursor = start + l.text.length; return start; });
+  }, [lines, doc]);
+  const goToQuote = (match?: QuoteMatch) => {
+    setTextOpen(true);
+    if (!match) { setJump(null); requestAnimationFrame(() => document.getElementById("contract-text-view")?.scrollIntoView?.({ behavior: "smooth", block: "center" })); return; }
+    const line = lineOffsets.findIndex((start, i) => start + lines[i]!.text.length > match.start);
+    setJump((j) => ({ line: Math.max(0, line), n: (j?.n ?? 0) + 1, range: match }));
+  };
+  const highlighted = (value: string, index: number) => {
+    const range = jump?.range, start = lineOffsets[index]!;
+    if (!range || range.start >= start + value.length || range.end <= start) return value;
+    const from = Math.max(0, range.start - start), to = Math.min(value.length, range.end - start);
+    return <>{value.slice(0, from)}<mark className="rounded bg-primary/25 text-foreground">{value.slice(from, to)}</mark>{value.slice(to)}</>;
+  };
   const goToFlag = (id: string) => { setOpen(id); requestAnimationFrame(() => document.getElementById(`flag-${id}`)?.scrollIntoView?.({ behavior: "smooth", block: "center" })); };
   useEffect(() => { if (jump && textOpen) document.getElementById(`contract-line-${jump.line}`)?.scrollIntoView?.({ behavior: "smooth", block: "center" }); }, [jump, textOpen]);
   const onFile = (f: File) => void load({ file: f });
@@ -193,11 +244,19 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
           </div>
           {result.flags.length === 0 ? <p className="text-sm text-muted-foreground">No issues identified in this check. Read the full agreement carefully before signing.</p> : (
             <>
+              {doc?.text && <p className="text-xs text-muted-foreground">Quote checks confirm that the quoted text appears in your contract, not the accuracy of legal advice.</p>}
               <div className="space-y-3">
-                {result.flags.map((f) => <FlagCard key={f.id} f={f} open={open === f.id} toggle={() => setOpen(open === f.id ? null : f.id)} onEmail={() => draft([f])} />)}
+                {result.flags.map((f) => <FlagCard key={f.id} f={f} open={open === f.id} toggle={() => setOpen(open === f.id ? null : f.id)} onEmail={() => draft([f])} check={evidence[f.id]} onOriginal={goToQuote} />)}
               </div>
               <Button variant="outline" onClick={() => draft(result.flags)}><Mail /> Draft email to landlord/agent</Button>
             </>
+          )}
+          {doc?.file && !doc.text && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-background/40 p-4 text-sm">
+              <FileText className="size-4 text-primary" /><span className="font-semibold">Contract text</span>
+              <span className="text-muted-foreground" role={extracting ? "status" : undefined}>{extracting ?? "Read the PDF on this device to see where each quote appears, or to correct the text."}</span>
+              <Button size="sm" variant="outline" className="ml-auto" disabled={!!extracting} onClick={() => void showText()}>Show contract text</Button>
+            </div>
           )}
           {doc?.text && (
             <div className="rounded-lg border border-border bg-background/40" id="contract-text-view">
@@ -205,11 +264,24 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
                 <FileText className="size-4 text-primary" /> Contract text <span className="font-normal text-muted-foreground">· original contract text</span>
                 <ChevronDown className={`ml-auto size-4 transition ${textOpen ? "rotate-180" : ""}`} />
               </button>
-              {textOpen && (
-                <div className="max-h-[28rem] space-y-1 overflow-auto border-t border-border p-4 font-mono text-xs leading-relaxed" aria-label="Contract text" role="region">
-                  {lines.map((l, i) => <p key={i} id={`contract-line-${i}`} data-clause={l.num} aria-current={jump?.line === i ? "location" : undefined} className={`rounded px-1.5 py-0.5 ${jump?.line === i ? "bg-primary/20 text-foreground ring-1 ring-primary/40" : ""}`}>{l.text}</p>)}
+              {textOpen && (edit !== null ? (
+                <div className="space-y-3 border-t border-border p-4">
+                  <label htmlFor="contract-edit" className="text-sm font-medium">Edit contract text</label>
+                  <p className="text-xs text-muted-foreground">Correct anything that was read wrongly. Applying changes checks the contract again{doc.local ? " on this device" : " — the corrected text is sent to Google Gemini"}.</p>
+                  <Textarea id="contract-edit" value={edit} onChange={(e) => setEdit(e.target.value)} className="min-h-72 resize-y bg-background/50 font-mono text-xs leading-relaxed" />
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" disabled={!edit.trim()} onClick={applyEdit}>Apply changes</Button>
+                    <Button size="sm" variant="outline" onClick={() => setEdit(null)}>Cancel editing</Button>
+                  </div>
                 </div>
-              )}
+              ) : (
+                <div className="border-t border-border">
+                  <div className="flex justify-end px-4 pt-3"><Button size="sm" variant="outline" onClick={() => setEdit(doc.text)}><Pencil /> Edit text</Button></div>
+                  <div className="max-h-[28rem] space-y-1 overflow-auto p-4 font-mono text-xs leading-relaxed" aria-label="Contract text" role="region">
+                    {lines.map((l, i) => <p key={i} id={`contract-line-${i}`} data-clause={l.num} aria-current={jump?.line === i ? "location" : undefined} className={`rounded px-1.5 py-0.5 ${jump?.line === i ? "bg-primary/20 text-foreground ring-1 ring-primary/40" : ""}`}>{highlighted(l.text, i)}</p>)}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -220,18 +292,29 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
   );
 }
 
-function FlagCard({ f, open, toggle, onEmail }: { f: Flag; open: boolean; toggle: () => void; onEmail: () => void }) {
+/** `check` is present once the contract text is available on this device: it says whether the quotation was found, and where. */
+function FlagCard({ f, open, toggle, onEmail, check, onOriginal }: { f: Flag; open: boolean; toggle: () => void; onEmail: () => void; check: QuoteCheck | undefined; onOriginal: (match?: QuoteMatch) => void }) {
   const red = f.severity === "red";
+  const label = check?.status === "verified" ? "Original text verified" : check?.status === "clause-review" ? "Clause number needs checking" : "Original text match needs checking";
+  const reason = check?.status === "verified" ? "This quotation was found in the stated clause." : check?.status === "clause-review" ? "The quotation was found, but the stated clause number could not be confirmed." : "No matching quotation was found automatically. Please check the original text.";
   return (
     <div id={`flag-${f.id}`} className={`scroll-mt-24 rounded-lg border bg-background/40 ${red ? "border-destructive/50" : "border-warning/50"}`}>
       <button onClick={toggle} aria-expanded={open} className="flex w-full flex-wrap items-center gap-3 p-4 text-left">
         <span className={`rounded px-2 py-1 text-xs font-semibold ${red ? "bg-destructive text-destructive-foreground" : "bg-warning text-warning-foreground"}`}>{red ? "High concern" : "Worth reviewing"}</span>
         <span className="text-sm font-semibold normal-case">{f.label.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}<span className="ml-2 font-normal text-muted-foreground">Clause {f.clause}</span></span>
+        {check && <span title={reason} className={`rounded-full border px-2 py-1 text-[10px] font-medium ${check.status === "verified" ? "border-primary/30 text-primary" : "border-warning/40 text-warning"}`}>{label}</span>}
         <ChevronDown className={`ml-auto size-4 transition ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <div className="space-y-4 border-t border-border p-4 text-sm leading-relaxed">
           <p className="italic text-muted-foreground">"{f.text}"</p>
+          {check && <>
+            <p className="text-xs text-muted-foreground">{reason}</p>
+            {check.matches.length > 1 && <p className="text-xs text-warning">Multiple matches found. Choose a location to review.</p>}
+            <div className="flex flex-wrap gap-2">
+              {check.matches.length ? check.matches.map((m, i) => <Button key={`${m.start}-${m.end}`} size="sm" variant="outline" onClick={() => onOriginal(m)}><FileText /> View original{check.matches.length > 1 ? ` · ${m.clause ? `Clause ${m.clause}` : "Unnumbered"} · ${i + 1}` : ""}</Button>) : <Button size="sm" variant="outline" onClick={() => onOriginal()}><FileText /> View original</Button>}
+            </div>
+          </>}
           <p className="font-mono text-xs text-primary">Relevant law: {f.statute}</p>
           <p className="text-xs">{f.explain}</p>
           <Button size="sm" variant="secondary" onClick={onEmail}><Mail /> Draft an email about this issue</Button>

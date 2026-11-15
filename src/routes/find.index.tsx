@@ -78,7 +78,7 @@ function FindCity() {
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input aria-label="Search for a city" role="combobox" aria-expanded={open} aria-controls="city-suggestions" aria-autocomplete="list" autoComplete="off" disabled={entering} value={q}
-                onChange={(e) => { setQ(e.target.value); setMissing(null); setHi(0); }} onKeyDown={onKey} placeholder="Start typing a city, e.g. Durham"
+                onChange={(e) => { setQ(e.target.value); setMissing(null); setHi(0); }} onKeyDown={onKey} placeholder="Search your city, e.g. Durham"
                 className="w-full rounded-2xl border border-white/15 bg-slate-950/50 py-4 pl-9 pr-3 shadow-lg shadow-black/10 backdrop-blur-sm text-sm outline-none focus:border-primary" />
             </div>
             {open && (

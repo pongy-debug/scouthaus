@@ -37,7 +37,7 @@ export function ContractScanner() {
         <p className="text-sm text-muted-foreground">Drag a file here or choose one from your device.</p>
         <Button disabled={loading} onClick={() => file.current?.click()}>Choose a file</Button>
         <input ref={file} type="file" accept=".txt,.pdf,text/plain,application/pdf,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void begin({ file: f }); }} />
-        <p className="text-xs text-muted-foreground">PDF, photo or text file - read on your device</p>
+        <p className="text-xs text-muted-foreground">PDF, photo or text file</p>
         <Button variant="link" disabled={loading} onClick={() => void begin({ sample: true })}>Try sample contract</Button>
         {loading && <p role="status" className="flex items-center gap-2 text-sm"><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> Loading contract reader...</p>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -46,7 +46,7 @@ export function ContractScanner() {
         <label htmlFor="contract-text" className="text-lg font-semibold">Or paste your contract</label>
         <Textarea id="contract-text" value={text} onChange={(e) => setText(e.target.value)} disabled={loading} placeholder="Paste the text of your tenancy agreement here..." className="min-h-40 flex-1" />
         <Button disabled={loading || !text.trim()} onClick={() => void begin({ text, name: "Pasted contract" })}>Check my contract</Button>
-        <p className="text-xs text-muted-foreground">You review redacted personal details before anything is sent to Gemini.</p>
+        <p className="text-xs text-muted-foreground">Your PDF or full contract text, including personal details, is sent to Google Gemini for analysis. Samples run locally.</p>
       </div>
     </section>
   </div>;

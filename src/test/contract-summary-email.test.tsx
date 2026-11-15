@@ -5,6 +5,9 @@ import type { AiEmail, AiScan, AiSummary } from "@/lib/hh/gemini";
 // The four mocks stand in for the only network calls the scanner makes: the server functions that call Gemini.
 const { analyseContract, summariseContract, draftEmail, reviseEmail } = vi.hoisted(() => ({ analyseContract: vi.fn(), summariseContract: vi.fn(), draftEmail: vi.fn(), reviseEmail: vi.fn() }));
 vi.mock("@/lib/hh/gemini", () => ({ analyseContract, summariseContract, draftEmail, reviseEmail }));
+import { SAMPLES } from "@/lib/hh/samples";
+import { restoreText, detectRedactions } from "@/lib/hh/redact";
+import { EmailDrafter } from "@/components/hh/EmailDrafter";
 import { ContractScanner } from "@/components/hh/ContractScanner";
 
 // The three sample tenants' names, emails, phones and addresses.
@@ -35,7 +38,7 @@ const drafted: AiEmail = { ok: true, subject: "Requested changes to the tenancy 
 
 const scrolled: string[] = [];
 beforeEach(() => {
-  analyseContract.mockResolvedValue(analysis); summariseContract.mockResolvedValue(summary); draftEmail.mockResolvedValue(drafted);
+  analyseContract.mockResolvedValue(JSON.parse(restoreText(JSON.stringify(analysis), detectRedactions(SAMPLES.predatory.text)))); summariseContract.mockResolvedValue(JSON.parse(restoreText(JSON.stringify(summary), detectRedactions(SAMPLES.predatory.text)))); draftEmail.mockResolvedValue(drafted);
   scrolled.length = 0;
   Element.prototype.scrollIntoView = function (this: Element) { scrolled.push(this.id); };
 });
@@ -43,17 +46,18 @@ afterEach(() => { cleanup(); for (const m of [analyseContract, summariseContract
 
 async function review() {
   render(<ContractScanner />);
-  fireEvent.click(screen.getByRole("button", { name: "Try sample contract" }));
-  fireEvent.click(await screen.findByRole("button", { name: /Analyse redacted contract/ }));
+  fireEvent.change(screen.getByLabelText("Or paste your contract"), { target: { value: SAMPLES.predatory.text } });
+  fireEvent.click(screen.getByRole("button", { name: "Check my contract" }));
   return screen.findByRole("region", { name: "Your contract review" });
 }
 async function openEmail() {
-  fireEvent.click(screen.getByRole("button", { name: "Draft email to landlord/agent" }));
+  cleanup();
+  render(<EmailDrafter open onOpenChange={() => {}} flags={analysis.ok ? analysis.result.flags : []} risk="High risk" address="14 Gilesgate, Durham DH1 1HP" items={detectRedactions(SAMPLES.predatory.text)} />);
   const dialog = await screen.findByRole("dialog");
   const body = (await within(dialog).findByLabelText("Email")) as HTMLTextAreaElement;
   return { dialog, body };
 }
-const everythingSent = () => JSON.stringify([analyseContract, summariseContract, draftEmail, reviseEmail].flatMap((m) => m.mock.calls.map((c) => c[0])));
+const everythingSent = () => JSON.stringify([draftEmail, reviseEmail].flatMap((m) => m.mock.calls.map((c) => c[0])));
 
 it("1 · shows the Contract summary above the red flags, every key term filled in or marked not stated", async () => {
   const region = await review();
@@ -61,7 +65,7 @@ it("1 · shows the Contract summary above the red flags, every key term filled i
   // Above the red flags.
   const firstFlag = within(region).getByText("Clause 3.2", { selector: "span.ml-2" });
   expect(panel.compareDocumentPosition(firstFlag) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  // Real names were put back locally.
+  // The summary preserves the original names.
   expect(within(panel).getByText(/between Wearside Student Lets Ltd and Priya Sharma, Tom Okafor and Mei Lin Chen for 14 Gilesgate, Durham DH1 1HP/)).toBeVisible();
   const rows = within(within(panel).getByRole("table")).getAllByRole("row").slice(1).map((r) => r.textContent);
   expect(rows).toEqual([
@@ -79,7 +83,7 @@ it("1 · shows the Contract summary above the red flags, every key term filled i
   expect(within(panel).getByText("AI-generated summary for information only, not legal advice. Check it against the contract.")).toBeVisible();
   expect(within(panel).getByRole("button", { name: /Copy summary/ })).toBeVisible();
   expect(within(panel).getByRole("button", { name: /Download as PDF/ })).toBeVisible();
-  expect(summariseContract.mock.calls[0]![0]).toEqual(analyseContract.mock.calls[0]![0]); // the same redacted text
+  expect(summariseContract.mock.calls[0]![0]).toEqual(analyseContract.mock.calls[0]![0]); // the same original text
 });
 
 it("2 · each summary item links to the right clause, and Watch out links to the full entry", async () => {
@@ -173,7 +177,8 @@ it("4 + 5 · a manual edit survives an AI revision that adds one sentence, and U
 it("a failed email request shows a clear error with Try again — never a template", async () => {
   draftEmail.mockResolvedValueOnce({ ok: false, reason: "failed", message: "Gemini timed out" });
   await review();
-  fireEvent.click(screen.getByRole("button", { name: "Draft email to landlord/agent" }));
+  cleanup();
+  render(<EmailDrafter open onOpenChange={() => {}} flags={analysis.ok ? analysis.result.flags : []} risk="High risk" address="14 Gilesgate, Durham DH1 1HP" items={detectRedactions(SAMPLES.predatory.text)} />);
   const dialog = await screen.findByRole("dialog");
   const alert = await within(dialog).findByRole("alert");
   expect(alert).toHaveTextContent("The email could not be draftedGemini timed out.");

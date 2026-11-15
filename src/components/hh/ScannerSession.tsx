@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, FileUp, Mail, FileSearch, FileText, LoaderCircle, Lock, ShieldCheck, ArrowRight } from "lucide-react";
+import { ChevronDown, FileUp, Mail, FileSearch, FileText, LoaderCircle, ShieldCheck, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { scan, type ScanResult, type Flag } from "@/lib/hh/scanner";
 import { analyseContract, summariseContract, type AiScan, type AiSummary } from "@/lib/hh/gemini";
-import { addManualRedaction, applyRedactions, countByKind, detectRedactions, findLeaks, restoreText, type Redaction } from "@/lib/hh/redact";
 import { SAMPLES } from "@/lib/hh/samples";
 import { contractLines, findClauseLine, mapSummary, riskLevel } from "@/lib/hh/summary";
-import { PrivacyCheck, RedactionList } from "@/components/hh/PrivacyCheck";
 import { SummaryPanel, type SummaryState } from "@/components/hh/SummaryPanel";
 import { EmailDrafter } from "@/components/hh/EmailDrafter";
 
@@ -22,22 +19,11 @@ async function readFile(file: File, progress: (m: string) => void, signal: Abort
 }
 
 type Source = { by: "gemini" } | { by: "local"; why?: string };
-/** A contract held in browser memory: the original text and the list of personal details found in it. */
-interface Loaded { name: string; text: string; items: Redaction[] }
-
-/** Real values go back into the AI's answer here, in the browser, so the review reads naturally. */
-function restoreResult(r: ScanResult, items: Redaction[]): ScanResult {
-  const fix = (s: string) => restoreText(s, items);
-  return { ...r, ...(r.scoreReason ? { scoreReason: fix(r.scoreReason) } : {}), flags: r.flags.map((f) => ({ ...f, clause: fix(f.clause), text: fix(f.text), explain: fix(f.explain), ask: fix(f.ask), statute: fix(f.statute) })) };
-}
+interface Loaded { name: string; text: string; pdf?: string }
 
 export function ScannerSession({ initialInput }: { initialInput: { file: File } | { text: string; name: string } | { sample: true } }) {
   const [text, setText] = useState("");
-  // The original contract and the value → placeholder map live only in this component's state: they are dropped
-  // when the visitor leaves the page or chooses "Clear contract", and are never sent, stored or logged.
   const [doc, setDoc] = useState<Loaded | null>(null);
-  const [sent, setSent] = useState<Redaction[] | null>(null);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [address, setAddress] = useState("the property");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -56,17 +42,42 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
 
   const clear = () => {
     reader.current?.abort();
-    setDoc(null); setSent(null); summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setEmailOpen(false); setTextOpen(false); setJump(null); setOpen(null); setText(""); setAddress("the property"); setPrivacyOpen(false);
+    setDoc(null); summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setEmailOpen(false); setTextOpen(false); setJump(null); setOpen(null); setText(""); setAddress("the property");
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  // Step 1 — read the contract on this device and find personal details. Nothing is sent anywhere yet.
-  const load = async (input: { text: string; name: string } | { file: File }) => {
+  // Read locally, then analyse the original contract text.
+  const load = async (input: { text: string; name: string } | { file: File }, sample = false) => {
     if (reading) return;
-    summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setSent(null); setDoc(null);
+    summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setDoc(null);
     reader.current?.abort();
     const controller = new AbortController(); reader.current = controller;
     let t = "text" in input ? input.text : "";
+    if ("file" in input && (input.file.type === "application/pdf" || input.file.name.toLowerCase().endsWith(".pdf"))) {
+      setReading("Gemini is reading your PDF directly...");
+      try {
+        if (input.file.size > 14 * 1024 * 1024) throw new Error("PDF exceeds direct upload limit");
+        const pdf = await new Promise<string>((resolve, reject) => {
+          const fileReader = new FileReader();
+          fileReader.onload = () => resolve(String(fileReader.result).split(",")[1] ?? "");
+          fileReader.onerror = () => reject(new Error("Could not read PDF"));
+          fileReader.readAsDataURL(input.file);
+        });
+        if (controller.signal.aborted) return;
+        const ai = await analyseContract({ data: { pdf } });
+        if (controller.signal.aborted) return;
+        if (ai.ok) {
+          setDoc({ name: input.file.name, text: "", pdf });
+          setAddress(ai.address || "the property"); setSource({ by: "gemini" });
+          setResult(ai.result); setOpen(ai.result.flags[0]?.id ?? null); setReading(null);
+          void summarise({ pdf });
+          return;
+        }
+      } catch { /* Direct upload or analysis failed: use the on-device reader below. */ }
+      if (controller.signal.aborted) return;
+      sample = true; // Local rules after local extraction; do not retry the same failed AI service.
+      toast.info("Direct PDF review unavailable. Using the on-device reader and basic check.");
+    }
     if ("file" in input) {
       setReading(`Reading ${input.file.name} on your device…`);
       try { t = await readFile(input.file, (message) => { if (!controller.signal.aborted) setReading(message); }, controller.signal); }
@@ -75,60 +86,44 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
     }
     if (controller.signal.aborted) return;
     if (!t.trim()) { toast.error("file" in input ? "Couldn't read text from that file — is it password-protected or blank? Try pasting the clauses instead" : "Paste your contract or upload a file first"); return; }
-    setDoc({ name: "file" in input ? input.file.name : input.name, text: t, items: detectRedactions(t) });
+    const loaded = { name: "file" in input ? input.file.name : input.name, text: t };
+    setDoc(loaded);
+    await analyse(loaded, controller.signal, sample);
   };
   useEffect(() => {
-    void load("sample" in initialInput ? { text: SAMPLES.predatory.text, name: SAMPLES.predatory.name } : initialInput);
+    void load("sample" in initialInput ? { text: SAMPLES.predatory.text, name: SAMPLES.predatory.name } : initialInput, "sample" in initialInput);
   }, [initialInput]); // initialInput is fixed for this session
-  const toggleItem = (id: string) => setDoc((d) => d && { ...d, items: d.items.map((it) => (it.id === id ? { ...it, enabled: !it.enabled } : it)) });
-  const redactSelection = (selection: string) => {
-    if (!doc) return false;
-    const items = addManualRedaction(doc.text, doc.items, selection);
-    if (items) setDoc({ ...doc, items });
-    return !!items;
-  };
-
-  // The plain-English summary is a second Gemini request on the same redacted text; real values go back in here.
-  const summarise = async (redacted: string, items: Redaction[]) => {
+  const summarise = async (original: { text: string } | { pdf: string }) => {
     const id = ++summaryRun.current;
     setSummary({ status: "loading" });
     let r: AiSummary;
-    try { r = await summariseContract({ data: { text: redacted } }); }
+    try { r = await summariseContract({ data: original }); }
     catch { r = { ok: false, reason: "failed", message: "Gemini could not be reached" }; }
     if (id !== summaryRun.current) return;
-    setSummary(r.ok ? { status: "ready", data: mapSummary(r.summary, (s) => restoreText(s, items)) }
-      : { status: "error", message: r.reason === "no-key" ? "AI summaries are not set up on this site yet (no Gemini key)" : r.message });
+    setSummary(r.ok ? { status: "ready", data: mapSummary(r.summary, (s) => s) }
+      : { status: "error", message: r.message });
   };
-  const regenerate = () => {
-    if (!doc || !sent) return;
-    const { redacted } = applyRedactions(doc.text, sent);
-    if (findLeaks(redacted, sent).length) { toast.error("Redaction check failed, so nothing was sent."); return; }
-    void summarise(redacted, sent);
-  };
-
-  // Step 2 — send ONLY the redacted text to Gemini; if it is unavailable the local rules check the contract on this device.
-  const analyse = async () => {
-    if (reading || !doc) return;
-    const items = doc.items;
-    const { redacted } = applyRedactions(doc.text, items);
-    if (findLeaks(redacted, items).length) { toast.error("Redaction check failed, so nothing was sent. Please clear the contract and try again."); return; }
-    setResult(null); setSource(null); setEmailFlags(null);
-    void summarise(redacted, items);
-    setReading("Gemini is analysing the redacted contract… this can take up to a minute");
-    let ai: AiScan;
-    try { ai = await analyseContract({ data: { text: redacted } }); }
-    catch { console.warn("Gemini request failed"); ai = { ok: false, reason: "failed", message: "Could not reach Gemini" }; }
-    setReading(null); setSent(items);
-    const property = items.find((it) => it.enabled && it.placeholder === "[PROPERTY_ADDRESS]")?.value;
-    if (ai.ok) {
-      const restored = restoreResult(ai.result, items);
-      setAddress(restoreText(ai.address, items) || property || "the property"); setSource({ by: "gemini" });
-      setResult(restored); setOpen(restored.flags[0]?.id ?? null);
+  const regenerate = () => { if (doc) void summarise(doc.pdf ? { pdf: doc.pdf } : { text: doc.text }); };
+  const analyse = async (loaded: Loaded, signal: AbortSignal, sample: boolean) => {
+    if (sample) {
+      const local = scan(loaded.text);
+      setResult(local); setSource({ by: "local" }); setOpen(local.flags[0]?.id ?? null);
       return;
     }
-    const why = ai.reason === "no-key" ? "Gemini key not configured" : ai.message;
-    setSource({ by: "local", why }); setAddress(property || "the property");
-    const localResult = scan(doc.text); setResult(localResult); setOpen(localResult.flags[0]?.id ?? null);
+    void summarise({ text: loaded.text });
+    setReading("Gemini is analysing your contract...");
+    let ai: AiScan;
+    try { ai = await analyseContract({ data: { text: loaded.text } }); }
+    catch { ai = { ok: false, reason: "failed", message: "Could not reach Gemini" }; }
+    if (signal.aborted) return;
+    setReading(null);
+    if (ai.ok) {
+      setAddress(ai.address || "the property"); setSource({ by: "gemini" });
+      setResult(ai.result); setOpen(ai.result.flags[0]?.id ?? null);
+    } else {
+      setSource({ by: "local", why: ai.message }); setAddress("the property");
+      const local = scan(loaded.text); setResult(local); setOpen(local.flags[0]?.id ?? null);
+    }
   };
   // The email is written by Gemini from redacted flags (see EmailDrafter); a new set of flags starts a new draft.
   const draft = (flags: Flag[]) => { if (flags.map((f) => f.id).join() !== emailFlags?.map((f) => f.id).join()) setEmailFlags(flags); setEmailOpen(true); };
@@ -137,7 +132,6 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
   const goToClause = (ref: string) => { const line = findClauseLine(lines, ref); if (line >= 0) { setTextOpen(true); setJump((j) => ({ line, n: (j?.n ?? 0) + 1 })); } };
   const goToFlag = (id: string) => { setOpen(id); requestAnimationFrame(() => document.getElementById(`flag-${id}`)?.scrollIntoView?.({ behavior: "smooth", block: "center" })); };
   useEffect(() => { if (jump && textOpen) document.getElementById(`contract-line-${jump.line}`)?.scrollIntoView?.({ behavior: "smooth", block: "center" }); }, [jump, textOpen]);
-  const removed = sent ? countByKind(sent).total : 0;
   const onFile = (f: File) => void load({ file: f });
   const risk = result ? (result.score >= 60 ? "text-destructive" : result.score >= 30 ? "text-warning" : "text-primary") : "";
 
@@ -157,9 +151,9 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
             <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 text-primary"><FileUp className="size-8" /></div>
             <div><h2 className="text-lg font-semibold">Upload your contract</h2><p className="mt-2 text-sm text-muted-foreground">Drag a file here or choose one from your device.</p></div>
             <Button disabled={!!reading} onClick={() => fileRef.current?.click()} className="w-full max-w-xs"><FileUp /> Choose a file</Button>
-            <p className="text-xs text-muted-foreground">PDF, photo or text file · read on your device<br />You review what is removed before anything is sent.</p>
+            <p className="text-xs text-muted-foreground">PDF, photo or text file · read on your device<br />The full contract text is sent to Google Gemini for analysis.</p>
             {reading && <p role="status" className="text-xs text-muted-foreground">{reading}</p>}
-            <Button variant="link" size="sm" disabled={!!reading} onClick={() => void load({ text: SAMPLES.predatory.text, name: SAMPLES.predatory.name })}>Try sample contract</Button>
+            <Button variant="link" size="sm" disabled={!!reading} onClick={() => void load({ text: SAMPLES.predatory.text, name: SAMPLES.predatory.name }, true)}>Try sample contract</Button>
             <input ref={fileRef} type="file" accept=".txt,.pdf,text/plain,application/pdf,image/*" hidden onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
           </div>
           <div className="flex flex-col gap-4 p-6 sm:p-8">
@@ -168,10 +162,9 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
             <Button variant="secondary" disabled={!!reading || !text.trim()} onClick={() => void load({ text, name: "Pasted contract" })}>Check my contract <ArrowRight /></Button>
           </div>
         </div>
-        <p className="border-t border-border px-6 py-4 text-xs leading-relaxed text-muted-foreground">Privacy: your contract is read and redacted in your browser. Names, contact details, addresses and ID numbers are replaced with placeholders, and only that redacted text is processed by Google Gemini, which also writes the summary and the draft email. If AI is unavailable, a basic check runs on your device.</p>
+        <p className="border-t border-border px-6 py-4 text-xs leading-relaxed text-muted-foreground">Your PDF or full contract text, including any personal details, is sent to Google Gemini for analysis and a summary. If AI is unavailable, a basic check runs on your device. Sample contracts run locally.</p>
       </section>
 
-      {doc && !result && !reading && <PrivacyCheck text={doc.text} items={doc.items} busy={!!reading} onToggle={toggleItem} onRedact={redactSelection} onAnalyse={() => void analyse()} onClear={clear} />}
 
       {reading && <div className="flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 p-5 text-sm" role="status"><LoaderCircle className="size-5 shrink-0 animate-spin text-primary" /><div><p className="font-semibold">Reviewing your contract</p><p className="mt-1 text-muted-foreground">{reading}</p></div></div>}
       {!result && !reading && !doc && <section className="grid gap-5 sm:grid-cols-3" aria-label="What you will get">
@@ -182,11 +175,6 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
         <section className="space-y-5" aria-label="Your contract review">
           <div className="flex flex-wrap items-center gap-2"><FileSearch className="size-5 text-primary" /><h2 className="text-xl font-semibold">Your contract review</h2>
             <Button variant="ghost" size="sm" className="ml-auto" onClick={clear}>Clear contract</Button></div>
-          {sent && (
-            <button type="button" onClick={() => setPrivacyOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20">
-              <Lock className="size-3.5" /> Privacy · {removed === 0 ? "No personal details were found to redact before AI analysis" : `${removed} personal detail${removed === 1 ? " was" : "s were"} redacted before AI analysis`}{source?.by === "local" ? " (AI was unavailable)" : ""}
-            </button>
-          )}
           {summary && <SummaryPanel state={summary} flags={result.flags} title={address} canOpen={(r) => findClauseLine(lines, r) >= 0} onClause={goToClause} onFlag={goToFlag} onRegenerate={regenerate} />}
           <div className="glass p-6 sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-5">
@@ -211,10 +199,10 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
               <Button variant="outline" onClick={() => draft(result.flags)}><Mail /> Draft email to landlord/agent</Button>
             </>
           )}
-          {doc && (
+          {doc?.text && (
             <div className="rounded-lg border border-border bg-background/40" id="contract-text-view">
               <button type="button" onClick={() => setTextOpen(!textOpen)} aria-expanded={textOpen} className="flex w-full items-center gap-3 p-4 text-left text-sm font-semibold">
-                <FileText className="size-4 text-primary" /> Contract text <span className="font-normal text-muted-foreground">· shown from this device only</span>
+                <FileText className="size-4 text-primary" /> Contract text <span className="font-normal text-muted-foreground">· original contract text</span>
                 <ChevronDown className={`ml-auto size-4 transition ${textOpen ? "rotate-180" : ""}`} />
               </button>
               {textOpen && (
@@ -227,14 +215,7 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
         </section>
       )}
 
-      <Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <DialogHeader><DialogTitle>Redacted before AI analysis</DialogTitle><DialogDescription>These details were replaced with placeholders before the contract was sent. The real values are shown only on this device and were put back into your review locally.</DialogDescription></DialogHeader>
-          <RedactionList items={(sent ?? []).filter((it) => it.enabled)} />
-        </DialogContent>
-      </Dialog>
-
-      {result && sent && emailFlags && <EmailDrafter key={emailFlags.map((f) => f.id).join()} open={emailOpen} onOpenChange={setEmailOpen} flags={emailFlags} risk={riskLevel(result.score)} address={address} items={sent} />}
+      {result && emailFlags && <EmailDrafter key={emailFlags.map((f) => f.id).join()} open={emailOpen} onOpenChange={setEmailOpen} flags={emailFlags} risk={riskLevel(result.score)} address={address} items={[]} />}
     </div>
   );
 }

@@ -193,7 +193,7 @@ function CityMap({ cityId }: { cityId: string }) {
           state={{ filters, layer, areaId: area?.id ?? null, selectedId: selected?.id ?? null }} />
 
         {!mobile && (showList || selected) && (
-          <aside className="glass absolute bg-popover/95 bottom-9 right-3 top-14 z-20 flex w-[340px] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden" aria-label={selected ? "Property X-Ray" : "Houses"}>
+          <aside className="glass absolute bg-popover/95 bottom-9 right-3 top-14 z-20 flex w-[340px] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden" aria-label={selected ? "Property info" : "Houses"}>
             {selected ? <div className="min-h-0 flex-1 overflow-y-auto p-3">{xray}</div> : list}
           </aside>
         )}
@@ -211,7 +211,7 @@ function CityMap({ cityId }: { cityId: string }) {
           </Drawer>
           <Drawer shouldScaleBackground={false} open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
             <DrawerContent className="max-h-[85vh]">
-              <DrawerTitle className="sr-only">Property X-Ray</DrawerTitle>
+              <DrawerTitle className="sr-only">Property info</DrawerTitle>
               <DrawerDescription className="sr-only">Costs, EPC, HMO licensing, noise and reviews for the selected house</DrawerDescription>
               <div className="min-h-0 flex-1 overflow-y-auto p-3">{xray}</div>
             </DrawerContent>

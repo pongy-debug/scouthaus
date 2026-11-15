@@ -128,9 +128,9 @@ const DURHAM_HOUSES: House[] = [
     address: "Ruth First House, Providence Row", area: "claypath", cityId: "durham", postcode: "DH1 1RP",
     lat: 54.778619, lng: -1.572349, approximateLocation: true,
     availability: "available", availabilityNote: "Flats advertised for July 2027",
-    rent: 225, bedrooms: 2, bedroomsNote: "2–4 bed flats (Flat 7 count needs confirmation)",
+    rent: 225, bedrooms: 2, bedroomsNote: "2–4 bed flats",
     flatOptions: [{ bedrooms: 2, rent: 250 }, { bedrooms: 3, rent: 225 }, { bedrooms: 4, rent: 235 }],
-    rentNote: "Building with separate flats, advertised at £225–£250 pppw. Bills excluded except Flat 7. Flat 7 is described as both 4 and 5 bedrooms; confirm with Q Student.",
+    rentNote: "Building with separate flats, advertised at £225–£250 pppw. Bills excluded except Flat 7.",
     locationNote: "Claypath · Providence Row. Postcode-centre pin; exact building position not verified.",
     sourceUrl: "https://qstudent.co.uk/index.php/available-now/claypath",
     photoCredit: "Q Student (Flat 1; other flats vary)",
@@ -322,7 +322,7 @@ export const RISK_LAYERS: { id: RiskLayer; label: string; legend: Partial<Record
 
 /** "4 bed", or the listing's own note when the advert is unclear about the count. */
 export const bedsOf = (hs: House) => hs.bedroomsNote ?? `${hs.bedrooms} bed`;
-export const rentOf = (hs: House) => `${hs.flatOptions ? "From " : ""}£${hs.rent} pppw`;
+export const rentOf = (hs: House) => `£${hs.rent} pppw`;
 
 /** Mandatory HMO licensing in England applies to 5+ occupants in 2+ households; a building counts if any of its flats does. */
 export const needsHmoLicence = (hs: House) => (hs.flatOptions ?? [hs]).some((flat) => flat.bedrooms >= 5);

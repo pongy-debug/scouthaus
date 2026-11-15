@@ -10,7 +10,7 @@ const EPCS = ["A", "B", "C", "D", "E", "F", "G"] as const;
 const epcTone = (e: string) => (e <= "B" ? "bg-success" : e <= "D" ? "bg-warning" : "bg-destructive");
 const tone = (v: number) => (v >= 70 ? "text-destructive" : v >= 40 ? "text-warning" : "text-primary");
 
-/** Property X-Ray Drawer body: true cost, EPC, HMO licensing, noise, damp, rent benchmark, reviews and compare. */
+/** Property info drawer body: true cost, EPC, HMO licensing, noise, damp, rent benchmark, reviews and compare. */
 export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { house: House; pinned: boolean; onToggleCompare: () => void; onClose?: (() => void) | undefined }) {
   const p = house.xray;
   const diff = Math.round(((p.rent - p.median) / p.median) * 100);
@@ -24,7 +24,7 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
       <HouseGallery house={house} />
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">Property X-Ray</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Property info</div>
           <h2 className="text-lg font-bold leading-tight">{house.name}</h2>
           <div className="font-mono text-xs text-muted-foreground">{p.address} <span className="text-primary">{p.postcode}</span></div>
           <div className="mt-1 font-mono text-xs text-muted-foreground">{house.landlord} · {bedsOf(house)} · {rentOf(house)} · {house.availabilityNote ?? AVAIL_LABEL[house.availability]}</div>
@@ -35,7 +35,7 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
           {!house.tourPath && house.approximate && !house.approximateLocation && <p className="mt-1 text-xs text-muted-foreground">Approximate location</p>}
           {!house.tourPath && house.approximateLocation && <p className="mt-1 text-xs text-muted-foreground">Approximate location · pin placed at the postcode centre, not a verified building</p>}
         </div>
-        {onClose && <Button size="icon" variant="ghost" aria-label="Close X-Ray" onClick={onClose}><X /></Button>}
+        {onClose && <Button size="icon" variant="ghost" aria-label="Close property info" onClick={onClose}><X /></Button>}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant={pinned ? "default" : "outline"} onClick={onToggleCompare}><GitCompareArrows /> {pinned ? "Added to Compare" : "Add to Compare"}</Button>

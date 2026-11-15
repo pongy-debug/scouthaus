@@ -30,10 +30,10 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
           <div className="mt-1 font-mono text-xs text-muted-foreground">{house.landlord} · {bedsOf(house)} · {rentOf(house)} · {house.availabilityNote ?? AVAIL_LABEL[house.availability]}</div>
           {house.availableFrom && <p className="mt-1 text-xs text-primary">Available from {new Date(`${house.availableFrom}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</p>}
           {house.propertyType === "studio" && <p className="mt-1 text-xs font-semibold">{PROPERTY_TYPE_LABEL.studio}</p>}
-          {house.rentNote && <p className="mt-1 text-xs text-muted-foreground">{house.rentNote}</p>}
-          {house.locationNote && <p className="mt-1 text-xs text-muted-foreground">{house.locationNote}</p>}
-          {house.approximate && !house.approximateLocation && <p className="mt-1 text-xs text-muted-foreground">Approximate location</p>}
-          {house.approximateLocation && <p className="mt-1 text-xs text-muted-foreground">Approximate location · pin placed at the postcode centre, not a verified building</p>}
+          {!house.tourPath && house.rentNote && <p className="mt-1 text-xs text-muted-foreground">{house.rentNote}</p>}
+          {!house.tourPath && house.locationNote && <p className="mt-1 text-xs text-muted-foreground">{house.locationNote}</p>}
+          {!house.tourPath && house.approximate && !house.approximateLocation && <p className="mt-1 text-xs text-muted-foreground">Approximate location</p>}
+          {!house.tourPath && house.approximateLocation && <p className="mt-1 text-xs text-muted-foreground">Approximate location · pin placed at the postcode centre, not a verified building</p>}
         </div>
         {onClose && <Button size="icon" variant="ghost" aria-label="Close X-Ray" onClick={onClose}><X /></Button>}
       </div>

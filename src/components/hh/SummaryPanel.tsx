@@ -17,13 +17,13 @@ export function SummaryPanel({ state, flags, title, canOpen, onClause, onFlag, o
   const Refs = ({ clause }: { clause: string }) => {
     const refs = clauseRefs(clause);
     if (!refs.length) return <span className="text-xs text-muted-foreground">No clause number</span>;
-    return <span className="inline-flex flex-wrap gap-x-2">{refs.map((r) => canOpen(r)
-      ? <button key={r} type="button" onClick={() => onClause(r)} title="Show this clause in the contract" className="font-mono text-xs text-primary underline-offset-2 hover:underline">Clause {r}</button>
-      : <span key={r} className="font-mono text-xs text-muted-foreground">Clause {r}</span>)}</span>;
+    return <span className="flex flex-wrap justify-end gap-x-2 gap-y-1 text-right">{refs.map((r) => canOpen(r)
+      ? <button key={r} type="button" onClick={() => onClause(r)} title="Show this clause in the contract" className="max-w-full break-words font-mono text-xs text-primary underline-offset-2 hover:underline">Clause {r}</button>
+      : <span key={r} className="max-w-full break-words font-mono text-xs text-muted-foreground">Clause {r}</span>)}</span>;
   };
   const List = ({ items, extra }: { items: SummaryItem[]; extra?: (i: number) => string }) => items.length === 0
     ? <p className="text-sm text-muted-foreground">{NOT_STATED}</p>
-    : <ul className="space-y-2 text-sm leading-relaxed">{items.map((it, i) => <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5"><span aria-hidden="true" className="text-primary">•</span><span className="min-w-0 flex-1">{it.text}{extra?.(i) ? <strong className="ml-1 font-semibold">{extra(i)}</strong> : null}</span><Refs clause={it.clause} /></li>)}</ul>;
+    : <ul className="space-y-2 text-sm leading-relaxed">{items.map((it, i) => <li key={i} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 gap-y-1 sm:grid-cols-[auto_minmax(0,1fr)_10rem]"><span aria-hidden="true" className="text-primary">•</span><span className="min-w-0">{it.text}{extra?.(i) ? <strong className="ml-1 font-semibold">{extra(i)}</strong> : null}</span><span className="col-start-2 min-w-0 text-right sm:col-start-3"><Refs clause={it.clause} /></span></li>)}</ul>;
 
   const data = state.status === "ready" ? state.data : null;
   const text = () => blocksToText(summaryBlocks(data!, flags, title));
@@ -62,10 +62,10 @@ export function SummaryPanel({ state, flags, title, canOpen, onClause, onFlag, o
                 <thead className="sr-only"><tr><th>Term</th><th>What the contract says</th><th>Clause</th></tr></thead>
                 <tbody className="divide-y divide-border">
                   {termRows(data).map((r) => (
-                    <tr key={r.key} className="align-baseline">
+                    <tr key={r.key} className="align-top">
                       <th scope="row" className="w-2/5 px-3 py-2 font-medium text-muted-foreground">{r.label}</th>
                       <td className={`px-3 py-2 ${r.value ? "" : "text-muted-foreground"}`}>{r.value || NOT_STATED}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right">{r.value ? <Refs clause={r.clause} /> : <span className="text-xs text-muted-foreground" aria-hidden="true">—</span>}</td>
+                      <td className="w-32 px-3 py-2 text-right sm:w-40">{r.value ? <Refs clause={r.clause} /> : <span className="text-xs text-muted-foreground" aria-hidden="true">—</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -82,11 +82,13 @@ export function SummaryPanel({ state, flags, title, canOpen, onClause, onFlag, o
             {flags.length === 0 ? <p className="text-sm text-muted-foreground">No red-flag clauses were identified in this check.</p> : (
               <ul className="space-y-2 text-sm leading-relaxed">
                 {flags.map((f) => (
-                  <li key={f.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <li key={f.id} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 gap-y-1 sm:grid-cols-[auto_minmax(0,1fr)_10rem]">
                     <span aria-hidden="true" className={f.severity === "red" ? "text-destructive" : "text-warning"}>•</span>
-                    <span className="min-w-0 flex-1">{watchOutLine(f)}</span>
-                    <Refs clause={f.clause} />
-                    <button type="button" onClick={() => onFlag(f.id)} aria-label={`Full entry for clause ${f.clause}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline">Full entry <ArrowDown className="size-3" /></button>
+                    <span className="min-w-0">{watchOutLine(f)}</span>
+                    <span className="col-start-2 flex min-w-0 flex-col items-end gap-1 text-right sm:col-start-3">
+                      <Refs clause={f.clause} />
+                      <button type="button" onClick={() => onFlag(f.id)} aria-label={`Full entry for clause ${f.clause}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline">Full entry <ArrowDown className="size-3" /></button>
+                    </span>
                   </li>
                 ))}
               </ul>

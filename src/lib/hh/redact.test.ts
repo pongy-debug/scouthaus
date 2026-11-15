@@ -119,3 +119,57 @@ describe("redaction: sample contract", () => {
     expect(restoreText("the house at [PROPERTY_ADDRESS]", items)).toBe("the house at 14 Gilesgate");
   });
 });
+
+describe("redaction: PDF field layouts", () => {
+  it("redacts all three names in a flattened student agreement header", () => {
+    const text = `STUDENT TENANCY AGREEMENT  Property address: 14 Gilesgate, Durham DH1 1HP Tenant: Alice Brown Landlord: Henry Smith Tenant 2: Tom Carter Email: alice.brown@example.com Phone: 07700 900123 Home address: 27 Elm Grove, Leeds LS6 2AB Student ID: 000912345
+1. Rent is £168 per person per week.
+2. The tenancy starts on 1 July 2027 and ends on 30 June 2028.
+3. The deposit is £840.
+4. The tenant must pay a mandatory professional cleaning fee of £180.
+5. The landlord may enter at any time without prior notice.
+6. The tenant is responsible for all boiler and structural repairs.`;
+    const { items, redacted, parts } = sentFor(text);
+    for (const value of ["Alice Brown", "Henry Smith", "Tom Carter"]) {
+      expect(items.some((item) => item.kind === "name" && item.value === value)).toBe(true);
+      expect(redacted).not.toContain(value);
+    }
+    expect(redacted).toContain("Tenant: [TENANT_1] Landlord: [LANDLORD_1] Tenant 2: [TENANT_2]");
+    expect(redacted).toContain("£168 per person per week");
+    expect(redacted).toContain("1 July 2027 and ends on 30 June 2028");
+    expect(redacted).toContain("The deposit is £840");
+    expect(parts.map((part) => part.original).join("")).toBe(text);
+    for (const value of ["Alice Brown", "Henry Smith", "Tom Carter"]) {
+      expect(parts.some((part) => part.original === value && part.id)).toBe(true);
+    }
+  });
+
+  it.each([
+    ["same-line roles", "Tenant: Alice Brown Landlord: Henry Smith", ["Alice Brown", "Henry Smith"]],
+    ["name followed by contact fields", "Tenant: Alice Brown Email: alice@example.com Tel: 07700 900123", ["Alice Brown", "alice@example.com", "07700 900123"]],
+    ["next-line values", "Tenant:\nAlice Brown\nLandlord:\nHenry Smith", ["Alice Brown", "Henry Smith"]],
+    ["numbered inline role", "1. Parties Tenant: Alice Brown Landlord: Henry Smith", ["Alice Brown", "Henry Smith"]],
+    ["lowercase labelled name", "Tenant: alice brown", ["alice brown"]],
+    ["numbered tenants", "Tenant 1: Alice Brown Tenant 2: Henry Smith", ["Alice Brown", "Henry Smith"]],
+  ])("redacts %s without swallowing adjacent labels", (_label, text, values) => {
+    const { items, redacted } = sentFor(text);
+    for (const value of values) {
+      expect(items.some((i) => i.value === value)).toBe(true);
+      expect(redacted).not.toContain(value);
+    }
+    expect(redacted).toContain("Tenant");
+  });
+
+  it("redacts full-name case variants after identifying a person", () => {
+    expect(sentFor("Tenant: Alice Brown\nALICE BROWN and alice brown sign.").redacted)
+      .toBe("Tenant: [TENANT_1]\n[TENANT_1] and [TENANT_1] sign.");
+  });
+
+  it("does not absorb rent, companies or an empty next field as a person's name", () => {
+    const text = "Tenant:\nLandlord: Wearside Student Lets Ltd Email: office@example.com\nRent: £168 per week. Deposit: £840.";
+    const { redacted, items } = sentFor(text);
+    expect(items.filter((i) => i.kind === "name")).toEqual([]);
+    expect(redacted).toContain("Wearside Student Lets Ltd");
+    expect(redacted).toContain("Rent: £168 per week. Deposit: £840.");
+  });
+});

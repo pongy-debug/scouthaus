@@ -102,8 +102,8 @@ it("says so plainly when no personal details are found, and clearing wipes the c
   render(<ContractScanner />);
   fireEvent.change(screen.getByLabelText("Or paste your contract"), { target: { value: "2.1 The rent is £152 per person per week payable monthly in advance.\n9.1 The Landlord may enter after 24 hours' written notice." } });
   fireEvent.click(screen.getByRole("button", { name: /Check my contract/ }));
-  expect(await screen.findByRole("heading", { name: "We found no personal details to remove" })).toBeVisible();
-  expect(screen.getByText("No names, contact details, addresses or ID numbers were detected.")).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "No personal details were automatically detected — please check manually" })).toBeVisible();
+  expect(screen.getByText("Automatic detection may miss names, contact details, addresses or ID numbers. Check the original text and use “Redact this” for anything missed.")).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Clear contract" }));
   expect(screen.queryByRole("heading", { name: /personal details/ })).toBeNull();
   expect(screen.getByLabelText("Or paste your contract")).toHaveValue("");
@@ -119,4 +119,51 @@ it("falls back to the on-device check when Gemini is unavailable, still having s
   expect(screen.getByText(/Basic on-device check/)).toBeVisible();
   for (const c of ["14.2", "9.4", "18.1", "22.3"]) expect(screen.getByText(`Clause ${c}`)).toBeVisible();
   for (const p of PERSONAL) expect(sentText()).not.toContain(p);
+});
+
+it("applies corrected extracted text, detects new personal details and uses it for analysis and the original-text viewer", async () => {
+  analyseContract.mockResolvedValue(noAi);
+  const { container } = render(<ContractScanner />);
+  const file = new File(["contract"], "contract.txt", { type: "text/plain" });
+  Object.defineProperty(file, "text", { value: async () => SAMPLES.predatory.text });
+  fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+  await screen.findByRole("button", { name: "Edit extracted text" });
+  fireEvent.click(screen.getByRole("button", { name: "Edit extracted text" }));
+  const editor = screen.getByRole("textbox", { name: "Extracted contract text" });
+  expect(screen.queryByText("Check the extracted text")).toBeNull();
+  expect(screen.queryByLabelText("Redacted contract preview")).toBeNull();
+  expect(editor).toHaveValue(SAMPLES.predatory.text);
+  const corrected = SAMPLES.predatory.text.replace("£168", "£198").replace("priya.sharma@example.com", "corrected.tenant@example.com");
+  fireEvent.change(editor, { target: { value: corrected } });
+  expect(screen.getByRole("button", { name: /Analyse redacted contract/ })).toBeDisabled();
+  expect(analyseContract).not.toHaveBeenCalled();
+  expect(summariseContract).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+  expect(screen.queryByRole("textbox", { name: "Extracted contract text" })).toBeNull();
+  expect(screen.getByLabelText("Redacted contract preview")).toHaveTextContent("£198");
+  expect(screen.getByLabelText("Redacted contract preview")).not.toHaveTextContent("corrected.tenant@example.com");
+  expect(within(screen.getByRole("list", { name: "Removed personal details" })).getByText("corrected.tenant@example.com")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: /Analyse redacted contract/ }));
+  await screen.findByRole("region", { name: "Your contract review" });
+  expect(sentText()).toContain("£198");
+  expect(sentText()).not.toContain("£168");
+  expect(sentText()).not.toContain("corrected.tenant@example.com");
+  expect(summariseContract.mock.calls[0]![0].data.text).toEqual(sentText());
+  fireEvent.click(screen.getByRole("button", { name: /Contract text.*shown from this device only/ }));
+  expect(screen.getByRole("region", { name: "Contract text" })).toHaveTextContent("£198");
+});
+
+it("rejects blank corrections and lets the user cancel without changing text or privacy choices", async () => {
+  render(<ContractScanner />);
+  fireEvent.click(screen.getByRole("button", { name: "Try sample contract" }));
+  await screen.findByRole("button", { name: "Edit extracted text" });
+  fireEvent.click(screen.getByRole("button", { name: "Restore Tom Okafor" }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit extracted text" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Extracted contract text" }), { target: { value: "   " } });
+  expect(screen.getByRole("button", { name: "Apply changes" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel editing" }));
+  expect(screen.getByLabelText("Redacted contract preview")).toHaveTextContent("Tom Okafor");
+  fireEvent.click(screen.getByRole("button", { name: "Edit extracted text" }));
+  expect(screen.getByRole("textbox", { name: "Extracted contract text" })).toHaveValue(SAMPLES.predatory.text);
+  expect(analyseContract).not.toHaveBeenCalled();
 });

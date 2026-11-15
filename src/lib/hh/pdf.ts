@@ -2,29 +2,13 @@
 // Everything runs in the browser — the document itself is never uploaded. Import this module lazily (browser only).
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
+import { reflow } from "./reflow";
+export { reflow } from "./reflow";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export type ReadProgress = (message: string) => void;
 type Ocr = (image: HTMLCanvasElement | File) => Promise<string>;
-
-const NUMBERED = /^(?:clause\s*)?\d+(?:\.\d+)*[.):\s-]/i;
-
-/** PDF and OCR text is wrapped mid-sentence; rejoin wrapped lines so each clause is one line for the scanner. */
-export function reflow(text: string): string {
-  const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, " ").trim());
-  const numbered = lines.some((l) => NUMBERED.test(l));
-  const out: string[] = [];
-  let open = false; // the previous line is still being continued
-  for (const l of lines) {
-    if (!l) { open = false; continue; }
-    const startsNew = NUMBERED.test(l) || !open;
-    if (startsNew) out.push(l); else out[out.length - 1] += " " + l;
-    // In numbered contracts a clause runs until the next number; otherwise until the sentence ends.
-    open = numbered ? true : !/[.;:!?]$/.test(l);
-  }
-  return out.join("\n");
-}
 
 async function withOcr<T>(progress: ReadProgress, job: (ocr: Ocr) => Promise<T>): Promise<T> {
   let worker: import("tesseract.js").Worker | undefined;

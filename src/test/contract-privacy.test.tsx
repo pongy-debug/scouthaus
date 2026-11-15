@@ -6,17 +6,28 @@ vi.mock("@/lib/hh/pdf", () => ({ readPdf }));
 import { ScannerSession } from "@/components/hh/ScannerSession";
 import { ContractScanner } from "@/components/hh/ContractScanner";
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
-it("analyses original pasted text directly without a redaction step and falls back locally", async () => {
+it("redacts pasted text and waits for the privacy check before sending it, then falls back locally", async () => {
   analyseContract.mockResolvedValue({ ok: false, reason: "no-key", message: "No key" });
   summariseContract.mockResolvedValue({ ok: false, reason: "no-key", message: "No key" });
   render(<ContractScanner />);
-  const text = "Tenant: Jane Smith. Email: jane@example.com. Rent is 150 per week.";
+  const text = ["Tenant: Jane Smith", "Email: jane@example.com", "1. Rent is 150 per week."].join("\n");
   fireEvent.change(screen.getByLabelText("Or paste your contract"), { target: { value: text } });
   fireEvent.click(screen.getByRole("button", { name: "Check my contract" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Analyse redacted contract/ }));
   await screen.findByRole("region", { name: "Your contract review" });
-  expect(analyseContract).toHaveBeenCalledWith({ data: { text } });
-  expect(summariseContract).toHaveBeenCalledWith({ data: { text } });
-  expect(screen.queryByText(/Analyse redacted contract/)).not.toBeInTheDocument();
+  const sent = analyseContract.mock.calls[0]![0].data.text as string;
+  expect(sent).toContain("Rent is 150 per week.");
+  for (const personal of ["Jane Smith", "jane@example.com"]) expect(sent).not.toContain(personal);
+  expect(summariseContract).toHaveBeenCalledWith({ data: { text: sent } });
+  expect(screen.getByRole("button", { name: /2 personal details were redacted before AI analysis/ })).toBeVisible();
+});
+it("sends nothing while the privacy check is open", async () => {
+  render(<ContractScanner />);
+  fireEvent.change(screen.getByLabelText("Or paste your contract"), { target: { value: ["Tenant: Jane Smith", "1. Rent is 150 per week."].join("\n") } });
+  fireEvent.click(screen.getByRole("button", { name: "Check my contract" }));
+  expect(await screen.findByLabelText("Redacted contract preview")).not.toHaveTextContent("Jane Smith");
+  expect(analyseContract).not.toHaveBeenCalled();
+  expect(summariseContract).not.toHaveBeenCalled();
 });
 it("keeps built-in sample checks local", async () => {
   render(<ContractScanner />);

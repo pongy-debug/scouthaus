@@ -19,38 +19,19 @@ const CityPicker = Route.options.component as ComponentType;
 
 afterEach(() => { globe.supported = false; globe.suspend = false; globe.attempted = false; cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); navigate.mockClear(); });
 
-it.each([false, true])("opens Durham after the transition (reduced motion: %s)", async (reduced) => {
-  vi.useFakeTimers();
-  vi.stubGlobal("matchMedia", () => ({ matches: reduced, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+it("opens Durham straight away: the shared page transition, not the picker, animates the change", () => {
   render(<CityPicker />);
   fireEvent.change(screen.getByRole("combobox"), { target: { value: "du" } });
   fireEvent.click(screen.getByRole("button", { name: /Durham/ }));
-  expect(screen.getByRole("status")).toHaveTextContent("Flying into Durham");
-  expect(navigate).not.toHaveBeenCalled();
-  await act(async () => { await vi.advanceTimersByTimeAsync(2199); });
-  expect(navigate).not.toHaveBeenCalled();
-  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  fireEvent.click(screen.getByRole("button", { name: /Durham/ })); // a second click while navigating is ignored
+  expect(screen.queryByRole("status")).toBeNull(); // no "Flying into…" step of its own
   expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: "/find/$city", params: { city: "durham" } });
 });
 
-it("cancels pending navigation when the picker is unmounted", async () => {
-  vi.useFakeTimers();
-  vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
-  const view = render(<CityPicker />);
-  fireEvent.change(screen.getByRole("combobox"), { target: { value: "du" } });
-  fireEvent.click(screen.getByRole("button", { name: /Durham/ }));
-  view.unmount();
-  await vi.advanceTimersByTimeAsync(3000);
-  expect(navigate).not.toHaveBeenCalled();
-});
-
-it("accepts Newcastle upon Tyne and flies into Newcastle", async () => {
-  vi.useFakeTimers();
+it("accepts Newcastle upon Tyne and opens Newcastle", () => {
   render(<CityPicker />);
   fireEvent.change(screen.getByRole("combobox", { name: "Search for a city" }), { target: { value: "Newcastle upon Tyne" } });
   fireEvent.click(screen.getByRole("button", { name: /Newcastle/ }));
-  expect(screen.getByRole("status")).toHaveTextContent("Flying into Newcastle");
-  await act(async () => { await vi.advanceTimersByTimeAsync(2200); });
   expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: "/find/$city", params: { city: "newcastle" } });
 });
 
@@ -65,7 +46,7 @@ it("shows the city suggestion only while the typed text matches, and Enter picks
   fireEvent.change(input, { target: { value: "D" } });
   expect(screen.getByRole("button", { name: /Durham/ })).toHaveTextContent(/\d+ areas · \d+ houses/);
   fireEvent.submit(input.closest("form")!);
-  expect(screen.getByRole("status")).toHaveTextContent("Flying into Durham");
+  expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: "/find/$city", params: { city: "durham" } });
 });
 
 it("does not show the alternative globe while checking WebGL or loading the designed globe", async () => {

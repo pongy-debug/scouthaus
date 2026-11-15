@@ -25,6 +25,10 @@ const STYLE = "https://tiles.openfreemap.org/styles/positron";
 const PICK_PX = 15;
 const OVERVIEW_ZOOM = 13.6;
 const VIEW = { pitch: 58, bearing: -20 };
+/** Selecting an area is a camera move inside the same map: fly first, then show the area's detail. */
+export const AREA_FLIGHT = { ms: 1400, circlesOutMs: 600, detailOutMs: 250, detailInMs: 450 } as const;
+const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+const HOVERED: ExpressionSpecification = ["boolean", ["feature-state", "hover"], false];
 
 type Poly = number[][][];
 const metres = (lat: number, m: number) => ({ dLat: m / 111320, dLng: m / (111320 * Math.cos((lat * Math.PI) / 180)) });
@@ -78,6 +82,8 @@ export interface StreetMapProps {
   onPickArea: (areaId: string) => void;
   onOpen: (h: House) => void;
   onHover: (houseId: string | null) => void;
+  /** The camera has arrived at the area that was selected (null = back at the overview): show its detail now. */
+  onSettled?: (areaId: string | null) => void;
 }
 
 /** The single Scouthaus map: area circles on the overview, extruded OSM buildings and risk-coloured listings everywhere. */
@@ -211,7 +217,7 @@ export default function StreetMap(props: StreetMapProps) {
         return { type: "Feature" as const, id: i, properties: { active: a.active, lat: c.lat, lng: c.lng }, geometry: { type: "Polygon" as const, coordinates: circle(c.lng, c.lat, c.r) } };
       });
       map.addSource("hh-areas", { type: "geojson", data: { type: "FeatureCollection", features: feats } });
-      const hov: ExpressionSpecification = ["boolean", ["feature-state", "hover"], false];
+      const hov = HOVERED;
       map.addLayer({ id: "hh-areas-fill", type: "fill", source: "hh-areas", paint: {
         "fill-color": ["case", ["get", "active"], INDIGO, "#94a3b8"], "fill-opacity": ["case", hov, 0.42, ["get", "active"], 0.2, 0.12],
       } });
@@ -223,6 +229,7 @@ export default function StreetMap(props: StreetMapProps) {
         const lab = document.createElement("div");
         lab.className = "pointer-events-none whitespace-nowrap rounded-md border border-border bg-card/90 px-2 py-0.5 text-[11px] font-semibold text-card-foreground shadow";
         lab.textContent = `${a.name} · ${a.postcode}${a.active ? "" : " (soon)"}`;
+        lab.style.transition = "opacity 120ms linear";
         if (!a.active) lab.style.opacity = "0.6";
         new maplibregl.Marker({ element: lab, anchor: "bottom", offset: [0, -8] }).setLngLat([c.lng, c.lat]).addTo(map);
         return lab;
@@ -327,26 +334,99 @@ export default function StreetMap(props: StreetMapProps) {
   // Redraw listings when the filters or the risk layer change.
   useEffect(() => { const m = mapRef.current; if (m && loaded) syncHouses(m); }, [loaded, houseKey, layer]);
 
-  // Entering an area hides the circles and their labels so they can't block the buildings.
+  // ── Area flights ──────────────────────────────────────────────────────────
+  // Circle and house opacities are animated by hand (MapLibre does not transition data-driven paint values).
+  const tweens = useRef(new Map<string, number>());
+  const circles = useRef({ sel: -1, ks: 1, ko: 1 });
+  const houseAlpha = useRef(1);
+  const flight = useRef(0);
+  const run = (key: string, ms: number, step: (t: number) => void, done?: () => void) => {
+    const prev = tweens.current.get(key); if (prev) cancelAnimationFrame(prev);
+    if (ms <= 0) { tweens.current.delete(key); step(1); done?.(); return; }
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - t0) / ms); step(k);
+      if (k < 1) tweens.current.set(key, requestAnimationFrame(tick)); else { tweens.current.delete(key); done?.(); }
+    };
+    tweens.current.set(key, requestAnimationFrame(tick));
+  };
+  /** `ks` = opacity factor of the selected circle (index `sel`), `ko` = of every other circle; labels follow. */
+  const paintCircles = (m: maplibregl.Map, sel: number, ks: number, ko: number) => {
+    circles.current = { sel, ks, ko };
+    if (!m.getLayer("hh-areas-fill")) return;
+    const isSel: ExpressionSpecification = ["==", ["id"], sel];
+    m.setPaintProperty("hh-areas-fill", "fill-opacity", ["case", isSel, 0.2 * ks, HOVERED, 0.42 * ko, ["get", "active"], 0.2 * ko, 0.12 * ko]);
+    m.setPaintProperty("hh-areas-line", "line-opacity", ["case", isSel, ks, ko]);
+    // Fully faded circles are hidden outright so they cannot block the buildings.
+    for (const id of ["hh-areas-fill", "hh-areas-line"]) m.setLayoutProperty(id, "visibility", ks > 0.01 || ko > 0.01 ? "visible" : "none");
+    labels.current.forEach((l, i) => { const k = i === sel ? ks : ko; l.style.opacity = String((city.areas[i]?.active ? 1 : 0.6) * k); l.style.display = k > 0.01 ? "" : "none"; });
+  };
+  const fadeCircles = (m: maplibregl.Map, sel: number, ks: number, ko: number, ms: number) => {
+    const from = circles.current;
+    run("circles", ms, (k) => paintCircles(m, sel, from.ks + (ks - from.ks) * k, from.ko + (ko - from.ko) * k));
+  };
+  const paintHouses = (m: maplibregl.Map, a: number) => {
+    houseAlpha.current = a;
+    if (!m.getLayer("hh-houses")) return;
+    m.setPaintProperty("hh-houses", "fill-extrusion-opacity", 0.95 * a); m.setPaintProperty("hh-houses-outline", "line-opacity", a);
+  };
+  const fadeHouses = (m: maplibregl.Map, to: number, ms: number, done?: () => void) => {
+    const from = houseAlpha.current;
+    run("houses", ms, (k) => paintHouses(m, from + (to - from) * k), done);
+  };
+  useEffect(() => () => { for (const id of tweens.current.values()) cancelAnimationFrame(id); }, []);
+
+  // Opened straight on an area (URL or refresh): the detailed view is simply there, with no flight.
   useEffect(() => {
     const m = mapRef.current; if (!m || !loaded) return;
-    for (const id of ["hh-areas-fill", "hh-areas-line"]) m.setLayoutProperty(id, "visibility", area ? "none" : "visible");
-    for (const l of labels.current) l.style.display = area ? "none" : "";
+    const inside = propsRef.current.area ? 0 : 1;
+    paintCircles(m, -1, inside, inside);
+  }, [loaded]);
+  // Ruth First House floor outlines show only while that building is selected.
+  useEffect(() => {
+    const m = mapRef.current; if (!m || !loaded) return;
     if (m.getLayer("hh-ruth-floors")) m.setLayoutProperty("hh-ruth-floors", "visibility", selectedId === "claypath-ruth" ? "visible" : "none");
     syncHouses(m);
   }, [loaded, area?.id, selectedId]);
 
-  // Camera: fly to a newly selected house, otherwise to the area that was just entered (or back out).
+  // Camera. A newly selected house in the same view: fly to it. A change of area: the zoom-first sequence —
+  //   in:  the camera starts at once; the chosen circle fades out and the others dim; on arrival the houses fade in
+  //        and onSettled lets the page switch its list to that area.
+  //   out: the houses fade out, the camera flies back up, then the circles and houses fade in.
+  // A new selection or a drag mid-flight ends the current flight; whatever the camera ends on is then shown.
   useEffect(() => {
     const m = mapRef.current; if (!m) return;
     const prev = flown.current; flown.current = { area: area?.id ?? null, sel: selectedId };
     const sel = selectedId ? city.houses.find((h) => h.id === selectedId) : undefined;
     const areaChanged = (area?.id ?? null) !== prev.area;
-    if (sel && (selectedId !== prev.sel || areaChanged)) m.flyTo({ center: [sel.lng, sel.lat], zoom: sel.id === "claypath-ruth" ? 19 : Math.max(m.getZoom(), 17), ...VIEW, duration: 1400 });
-    else if (areaChanged) {
-      if (area) { const c = areaCircle(city, area); m.flyTo({ center: [c.lng, c.lat], zoom: areaZoom(c.r), ...VIEW, duration: 1600 }); }
-      else m.flyTo({ center: [city.center.lng, city.center.lat], zoom: city.overviewZoom ?? OVERVIEW_ZOOM, ...VIEW, duration: 1400 });
-    }
+    // Leaving for the overview (breadcrumb, Back, browser back) always flies out to the city view, even if a house is
+    // still selected at that instant — the selection is cleared a moment later and must not hold the camera on it.
+    const leaving = areaChanged && !area;
+    const toHouse = sel && !leaving && (selectedId !== prev.sel || areaChanged);
+    if (!toHouse && !areaChanged) return;
+    const c = area ? areaCircle(city, area) : null;
+    const target = toHouse ? { center: [sel.lng, sel.lat] as [number, number], zoom: sel.id === "claypath-ruth" ? 19 : Math.max(m.getZoom(), 17) }
+      : c ? { center: [c.lng, c.lat] as [number, number], zoom: areaZoom(c.r) }
+      : { center: [city.center.lng, city.center.lat] as [number, number], zoom: city.overviewZoom ?? OVERVIEW_ZOOM };
+    if (!areaChanged) { m.flyTo({ ...target, ...VIEW, duration: AREA_FLIGHT.ms, essential: true }); return; }
+
+    const token = ++flight.current;
+    const idx = area ? city.areas.indexOf(area) : -1;
+    const settle = () => {
+      if (token !== flight.current) return; // superseded by a newer selection
+      if (area) paintCircles(m, idx, 0, 0); else fadeCircles(m, -1, 1, 1, AREA_FLIGHT.detailInMs);
+      fadeHouses(m, 1, AREA_FLIGHT.detailInMs);
+      propsRef.current.onSettled?.(area?.id ?? null);
+    };
+    m.stop(); // ends any flight in progress before this one is set up, so its "moveend" cannot be mistaken for ours
+    const go = () => {
+      if (token !== flight.current) return;
+      m.once("moveend", settle);
+      // essential: the flight plays even when the device asks for reduced motion (owner's decision).
+      m.flyTo({ ...target, ...VIEW, duration: AREA_FLIGHT.ms, easing: easeInOut, essential: true });
+    };
+    if (area) { fadeCircles(m, idx, 0, 0.3, AREA_FLIGHT.circlesOutMs); fadeHouses(m, 0, AREA_FLIGHT.detailOutMs); go(); }
+    else fadeHouses(m, 0, AREA_FLIGHT.detailOutMs, go);
   }, [area?.id, selectedId]);
 
   // Highlight the hovered and the selected listing; the selected one keeps a tooltip pinned above it.

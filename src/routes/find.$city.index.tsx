@@ -1,3 +1,6 @@
+import { RuthTour } from "@/components/hh/RuthTour";
+import { startSpaceFlight } from "@/lib/hh/transition";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -24,7 +27,7 @@ const field = "rounded-md border border-input bg-background px-2 py-1 font-mono 
 
 export const Route = createFileRoute("/find/$city/")({
   ssr: false,
-  validateSearch: (s: Record<string, unknown>): { area?: string } => (typeof s["area"] === "string" ? { area: s["area"] } : {}),
+  validateSearch: (s: Record<string, unknown>): { area?: string; tour?: boolean } => ({ ...(typeof s["area"] === "string" ? { area: s["area"] } : {}), ...(s["tour"] === true ? { tour: true } : {}) }),
   loader: ({ params }) => { const c = findCity(params.city); if (!c) throw notFound(); return { cityId: c.id }; },
   head: ({ loaderData }) => {
     const name = CITIES.find((c) => c.id === loaderData?.cityId)?.name ?? "City";
@@ -86,10 +89,13 @@ function CityMap({ cityId }: { cityId: string }) {
   const beds = bedRange(city);
   const legend = legendFor(city, layer);
   // The list and the X-Ray share one slot, so an open drawer always collapses the list.
-  const showList = listOpen && !selected;
+  const tourOpen = city.id === "durham" && area?.id === "claypath" && search.tour === true;
+  const showList = listOpen && !selected && !tourOpen;
+  const openTour = () => { setSelectedId(null); startSpaceFlight({ reduced: false, navigate: () => nav({ search: { area: "claypath", tour: true } }) }); };
+  const closeTour = () => { void nav({ search: { area: "claypath" } }); };
 
   const setArea = (id: string | null) => void nav({ search: id ? { area: id } : {} });
-  const pickArea = (id: string) => { setSelectedId(null); setArea(id); };
+  const pickArea = (id: string) => { if (city.id === "durham" && id === "claypath") setListOpen(false); setSelectedId(null); setArea(id); };
   const openHouse = (h: House) => { setHoverId(null); setSelectedId(h.id); if (h.area !== area?.id) setArea(h.area); };
   const toggleList = () => { if (selected) { setSelectedId(null); setListOpen(true); } else setListOpen((o) => !o); };
   const toggleCompare = (id: string) => setPinned((p) => {
@@ -113,7 +119,7 @@ function CityMap({ cityId }: { cityId: string }) {
   const list = <HouseList groups={groups} grouped={!area} hoverId={hoverId} selectedId={selectedId} onHover={setHoverId} onPick={openHouse}
     availableOnly={filters.availability === "available"} onAvailableOnly={(v) => set("availability", v ? "available" : "all")}
     query={houseQuery} onQuery={searchFor} cityName={city.name} {...(area ? { onSearchCity: () => setArea(null) } : {})} />;
-  const xray = selected && <PropertyDrawer house={selected} pinned={pinned.includes(selected.id)} onToggleCompare={() => toggleCompare(selected.id)} onClose={() => setSelectedId(null)} />;
+  const xray = selected && <PropertyDrawer onTour={openTour} house={selected} pinned={pinned.includes(selected.id)} onToggleCompare={() => toggleCompare(selected.id)} onClose={() => setSelectedId(null)} />;
 
   return (
     <div className="flex min-h-screen flex-col gap-3 p-3 lg:h-screen">
@@ -162,7 +168,7 @@ function CityMap({ cityId }: { cityId: string }) {
             : city.areas.map((a) => { const [x, z] = overviewPos(city, a); return { id: a.id, x, z, label: `${a.name} · ${a.postcode}${a.active ? "" : " · Coming soon"}`, tone: a.active ? "primary" : "muted", onClick: a.active ? () => pickArea(a.id) : undefined }; })} />
         ) : gl ? (
           <Suspense fallback={<Skeleton className="h-full w-full" />}>
-            <StreetMap city={city} area={area} houses={houses} layer={layer} selectedId={selected?.id ?? null} hoverId={hoverId} onPickArea={pickArea} onOpen={openHouse} onHover={setHoverId} />
+            <StreetMap onTour={openTour} city={city} area={area} houses={houses} layer={layer} selectedId={selected?.id ?? null} hoverId={hoverId} onPickArea={pickArea} onOpen={openHouse} onHover={setHoverId} />
           </Suspense>
         ) : <Skeleton className="h-full w-full" />}
 
@@ -194,6 +200,17 @@ function CityMap({ cityId }: { cityId: string }) {
         )}
       </div>
       <SiteFooter />
+      {city.id === "durham" && area?.id === "claypath" && !tourOpen && <div className="glass flex flex-wrap items-center justify-between gap-3 p-3">
+        <div><h2 className="font-semibold">Ruth First House - Four-storey preview</h2><p className="text-xs text-muted-foreground">Green top floor: tour available. Building shape, location and floor placement are illustrative, not verified.</p></div>
+        <Button onClick={openTour}>Enter top floor - Flat 4 tour</Button>
+      </div>}
+      <Dialog open={tourOpen} onOpenChange={(open) => { if (!open) closeTour(); }}>
+        <DialogContent className="h-[95dvh] max-w-[96vw] overflow-y-auto p-1">
+          <DialogTitle className="sr-only">Ruth First House - Flat 4 tour</DialogTitle>
+          <DialogDescription className="sr-only">Explore the supplied apartment model, then return to the Claypath building.</DialogDescription>
+          <RuthTour onBack={closeTour} />
+        </DialogContent>
+      </Dialog>
 
       {mobile && (
         <>

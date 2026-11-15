@@ -6,8 +6,7 @@ vi.mock("@/components/hh/SiteNav", () => ({ SiteNav: () => null }));
 const webgl = vi.hoisted(() => ({ enabled: true }));
 vi.mock("@/components/hh/MapFallback", () => ({ useWebGL: () => webgl.enabled }));
 vi.mock("@/components/hh/RuthTourScene", () => ({ default: ({ view }: { view: string }) => <div data-testid="scene">{view}</div> }));
-import { Route } from "@/routes/tour.first-ruth-house";
-const Tour = Route.options.component as ComponentType;
+import { RuthTour as Tour } from "@/components/hh/RuthTour";
 afterEach(() => { cleanup(); webgl.enabled = true; });
 
 it("embeds the supplied Flat 4 tour and offers its download instead of the old model", () => {

@@ -1,3 +1,4 @@
+import { resetSpaceFlight } from "@/lib/hh/transition";
 import { useState, type ComponentType } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -31,7 +32,7 @@ const type = (q: string) => fireEvent.change(box(), { target: { value: q } });
 // jsdom has no ResizeObserver or scrollIntoView (the bedroom slider and the list use them).
 vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 Element.prototype.scrollIntoView = () => {};
-afterEach(cleanup);
+afterEach(() => { cleanup(); resetSpaceFlight(); });
 
 it("1 · typing 'claypath' narrows the list and the count; Enter flies to the first result and opens its drawer", async () => {
   render(<Harness cityId="durham" />);
@@ -124,4 +125,14 @@ it("5 · landmarks never appear in the house list or change the house count", as
   type("Durham Cathedral");
   expect(results()).toHaveLength(0);
   for (const l of LANDMARKS) for (const c of CITIES) expect(c.houses.some((h) => h.id === l.id || h.name === l.name)).toBe(false);
+});
+
+it("opens the top-floor tour within Find House and returns to the same Claypath map", async () => {
+  render(<Harness cityId="durham" area="claypath" />);
+  await screen.findByTestId("map");
+  fireEvent.click(screen.getByRole("button", { name: /Enter top floor/ }));
+  expect(await screen.findByTitle("Ruth First House Flat 4 interactive 3D tour")).toHaveAttribute("src", "/tours/first-ruth-house/flat4-3d-model.html");
+  fireEvent.click(screen.getByRole("button", { name: "Back to building" }));
+  expect(screen.queryByTitle("Ruth First House Flat 4 interactive 3D tour")).not.toBeInTheDocument();
+  expect(screen.getByTestId("map")).toHaveAttribute("data-area", "claypath");
 });

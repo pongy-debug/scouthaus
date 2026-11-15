@@ -11,7 +11,7 @@ const epcTone = (e: string) => (e <= "B" ? "bg-success" : e <= "D" ? "bg-warning
 const tone = (v: number) => (v >= 70 ? "text-destructive" : v >= 40 ? "text-warning" : "text-primary");
 
 /** Property info drawer body: true cost, EPC, HMO licensing, noise, damp, rent benchmark, reviews and compare. */
-export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { house: House; pinned: boolean; onToggleCompare: () => void; onClose?: (() => void) | undefined }) {
+export function PropertyDrawer({ house, pinned, onToggleCompare, onClose, onTour }: { house: House; pinned: boolean; onTour?: () => void; onToggleCompare: () => void; onClose?: (() => void) | undefined }) {
   const p = house.xray;
   const diff = Math.round(((p.rent - p.median) / p.median) * 100);
   const cost = trueMonthlyCost(house);
@@ -43,7 +43,7 @@ export function PropertyDrawer({ house, pinned, onToggleCompare, onClose }: { ho
         <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">{p.area} · {p.tag}</span>
       </div>
       {house.tourPath && <Stat title="Virtual tour">
-        <Button asChild size="sm"><Link to={house.tourPath}>Explore in 3D</Link></Button>
+        {onTour ? <Button size="sm" onClick={onTour}>Explore in 3D</Button> : <Button asChild size="sm"><Link to={house.tourPath}>Explore in 3D</Link></Button>}
         <p className="mt-2 text-xs text-muted-foreground">Explore the supplied Flat 4 model, including three bedrooms, kitchen and living room. Illustrative layout; other flats may differ.</p>
       </Stat>}
       {advert && (

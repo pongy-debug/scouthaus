@@ -14,6 +14,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SpaceTransition } from "../components/hh/SpaceTransition";
+import { startSpaceFlight } from "../lib/hh/transition";
 
 function NotFoundComponent() {
   return (
@@ -120,12 +121,20 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => router.subscribe("onBeforeNavigate", ({ pathChanged, toLocation }) => {
+    if (!pathChanged) return;
+    // The home page starts its own delayed handoff for Find House. All other
+    // navigations can begin the same overlay while the router loads the next page.
+    startSpaceFlight({ reduced: false, navigate: () => undefined, target: toLocation.pathname });
+  }), [router]);
 
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      {/* Home → Find House fly-out; mounted here so it survives the route change. */}
+      {/* Page-to-page transition; mounted here so it survives route changes. */}
       <SpaceTransition />
       <Toaster theme="dark" position="bottom-center" />
     </QueryClientProvider>

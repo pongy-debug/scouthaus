@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-r
 import { FileSearch, House, Zap } from "lucide-react";
 import { Starfield } from "@/components/hh/Starfield";
 import { SiteLogo } from "@/components/hh/SiteNav";
-import { resetSpaceFlight, startSpaceFlight, useSpacePhase } from "@/lib/hh/transition";
+import { getSpaceTarget, resetSpaceFlight, startSpaceFlight, useSpacePhase } from "@/lib/hh/transition";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -45,8 +45,11 @@ function Landing() {
   const router = useRouter();
   const leaving = useSpacePhase() !== "idle";
   useEffect(() => {
-    // Showing the home page (first visit or back button) always starts from the normal state.
-    resetSpaceFlight();
+    if (getSpaceTarget() !== "/") {
+      // A direct render or a back button during a manually-started handoff should be normal.
+      // A router-driven navigation to home keeps the shared transition alive.
+      resetSpaceFlight();
+    }
     // Get the Find House page and its 3D Earth ready before the click, so the fly-out never waits on the network.
     void router?.preloadRoute?.({ to: "/find" })?.catch(() => { });
     void import("@/components/hh/CityGlobe").catch(() => { });

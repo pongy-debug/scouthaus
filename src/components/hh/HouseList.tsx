@@ -28,7 +28,7 @@ export function HouseList({ groups, grouped, hoverId, selectedId, availableOnly,
         <Switch checked={availableOnly} onCheckedChange={onAvailableOnly} /> Available only
       </label>
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5" onMouseLeave={() => onHover(null)}>
-        {empty && <p className="p-3 text-xs text-muted-foreground">No houses match the current filters.</p>}
+        {empty && <p className="p-3 text-xs text-muted-foreground">No houses match your search and filters in this area. Try another search, adjust the filters or return to all areas.</p>}
         {groups.map((g) => g.houses.length > 0 && (
           <section key={g.area.id}>
             {grouped && <h3 className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{g.area.name} · {g.houses.length}</h3>}

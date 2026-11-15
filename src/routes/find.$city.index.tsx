@@ -1,7 +1,7 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronDown, ChevronUp, GitCompareArrows } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, GitCompareArrows, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
@@ -54,6 +54,7 @@ function CityMap({ cityId }: { cityId: string }) {
   const area = city.areas.find((a) => a.active && a.id === search.area) ?? null;
 
   const [filters, setFilters] = useState<Filters>(() => defaultFilters(city));
+  const [houseQuery, setHouseQuery] = useState("");
   const [layer, setLayer] = useState<RiskLayer>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -73,7 +74,11 @@ function CityMap({ cityId }: { cityId: string }) {
     previousAreaId.current = areaId;
   }, [areaId]);
 
-  const houses = applyFilters(city.houses, filters);
+  const terms = houseQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const houses = applyFilters(city.houses, filters).filter((house) => {
+    const text = [house.name, house.address, house.postcode, house.postcode.replace(/\s/g, ""), house.landlord, city.areas.find((a) => a.id === house.area)?.name].join(" ").toLowerCase();
+    return terms.every((term) => text.includes(term));
+  });
   const selected = houses.find((h) => h.id === selectedId) ?? null;
   const groups = (area ? [area] : city.areas.filter((a) => a.active)).map((a) => ({ area: a, houses: houses.filter((h) => h.area === a.id) }));
   const listed = groups.reduce((n, g) => n + g.houses.length, 0);
@@ -95,6 +100,7 @@ function CityMap({ cityId }: { cityId: string }) {
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setFilters((f) => ({ ...f, [k]: v }));
   // Ask-the-map replies drive the same state as the manual controls.
   const applyAction = (a: MapAction) => {
+    setHouseQuery("");
     const target = a.houseId ? city.houses.find((h) => h.id === a.houseId) : undefined;
     // A house the assistant opens must stay visible, so filters that would hide it are dropped.
     setFilters(target && !applyFilters([target], a.filters).length ? defaultFilters(city) : a.filters);
@@ -120,6 +126,13 @@ function CityMap({ cityId }: { cityId: string }) {
       </div>
 
       <div className="glass flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-xs text-muted-foreground" aria-label="Filters">
+        <div className="relative w-full sm:w-72">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+          <input type="search" aria-label="Search houses" placeholder="House, street, area or postcode…" value={houseQuery}
+            onChange={(e) => { setHouseQuery(e.target.value); setSelectedId(null); setHoverId(null); }}
+            className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-9 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary [&::-webkit-search-cancel-button]:appearance-none" />
+          {houseQuery && <button type="button" aria-label="Clear house search" onClick={() => setHouseQuery("")} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-2 hover:text-foreground"><X className="size-4" /></button>}
+        </div>
         <label className="flex items-center gap-2">Max rent
           <input type="range" min={rents.min} max={rents.max} step={1} value={filters.maxRent} onChange={(e) => set("maxRent", Number(e.target.value))} className="w-28 accent-primary" />
           <span className="w-16 font-mono text-foreground">£{filters.maxRent} pppw</span>
@@ -143,8 +156,8 @@ function CityMap({ cityId }: { cityId: string }) {
             <option value="all">All</option>{(Object.keys(AVAIL_LABEL) as Availability[]).map((a) => <option key={a} value={a}>{AVAIL_LABEL[a]}</option>)}
           </select>
         </label>
-        <span className="ml-auto font-mono">{houses.length} of {city.houses.length} houses</span>
-        <Button size="sm" variant="ghost" onClick={() => setFilters(defaultFilters(city))}>Reset</Button>
+        <span className="ml-auto font-mono" role="status">{houses.length} of {city.houses.length} houses</span>
+        <Button size="sm" variant="ghost" onClick={() => { setFilters(defaultFilters(city)); setHouseQuery(""); }}>Reset</Button>
       </div>
 
       <div data-scene-root className="glass relative h-[70vh] overflow-hidden lg:h-auto lg:flex-1">

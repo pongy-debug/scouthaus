@@ -33,7 +33,7 @@ const WORD = "[A-Z][A-Za-z'’-]+";
 const NAME = `(?:(?:Mr|Mrs|Ms|Miss|Mx|Dr|Prof)\\.?\\s+)?${WORD}(?:[ \\t]+(?:${WORD}|de|van|von|bin|al|di|da|le|la)){1,3}`;
 const TITLES = ["Mr", "Mrs", "Ms", "Miss", "Mx", "Dr"];
 const COMPANY = /\b(ltd|limited|llp|plc|inc|lettings?|propert(?:y|ies)|estates?|homes|management|group|housing|agency|agents?|students|investments?|developments?|university|college|trust|council|partners|services|residential|rentals?|company|co|associates|holdings|accommodation)\b\.?/i;
-const NOT_A_NAME = /\b(The|Tenants?|Landlords?|Agents?|Guarantors?|Schedule|Property|Premises|Agreement|Deposit|Rent|Term|Date|Name|Address|Signed|Witness|Clause|Above|Below|Each|All|Any|This|That)\b/;
+const NOT_A_NAME = /\b(The|Tenants?|Landlords?|Agents?|Guarantors?|Schedule|Property|Premises|Agreement|Deposit|Rent|Term|Date|Name|Address|Signed|Witness|Clause|Above|Below|Each|All|Any|This|That)\b/i;
 // First names that are also everyday words or months: replacing them on their own would damage clause wording and dates.
 const AMBIGUOUS_FIRST = new Set(["Will", "Mark", "May", "Bill", "Grant", "Rose", "Sue", "Rob", "Pat", "Art", "Don", "Guy", "Hope", "Joy", "Faith", "Grace", "Penny", "Dean", "Earl", "Miles", "Rich", "Chase", "Hunter", "Summer", "Dawn", "Iris", "April", "June", "August", "Autumn", "Page", "Lane", "Bob", "Nick", "Jack", "Max", "Ray", "Sky", "Rain", "Reed", "Wade", "Cliff", "Dale", "Glen", "Heath", "Rod", "Stew", "Tony"]);
 const ROLE: Record<string, string> = { tenant: "TENANT", "lead tenant": "TENANT", "joint tenant": "TENANT", lessee: "TENANT", occupier: "TENANT", occupant: "TENANT", student: "TENANT", guarantor: "GUARANTOR", landlord: "LANDLORD", lessor: "LANDLORD", witness: "WITNESS" };
@@ -146,27 +146,29 @@ export function extendRedactions(text: string, items: Redaction[]): Redaction[] 
 
 interface Found { kind: RedactionKind; label: string; value: string; variants?: (ph: string) => Variant[]; fixed?: boolean; at?: number }
 
-function isName(piece: string) {
+function isName(piece: string, labelled = false) {
   const p = piece.trim();
-  return new RegExp(`^${NAME}$`).test(p) && !COMPANY.test(p) && !NOT_A_NAME.test(p);
+  return new RegExp(`^${NAME}$`, labelled ? "i" : "").test(p) && !COMPANY.test(p) && !NOT_A_NAME.test(p);
 }
 /** Leading names in a list such as "Priya Sharma, Tom Okafor and Mei Lin Chen, 27 Elm Grove…" (stops at the first non-name). */
-function leadingNames(rest: string): string[] {
+const DETAIL_LABEL = /\b(?:(?:(?:lead|joint)\s+)?(?:tenant|landlord|guarantor|lessor|lessee|witness|occupier|occupant|student)s?\s*(?:\(?\d+\)?)?\s*(?:name)?|(?:full|printed)\s+name|name|e-?mail|tel(?:ephone)?|phone|mobile|(?:(?:home|permanent|property|correspondence|current|contact)\s+)?address|date\s+of\s+birth|student\s+id)\s*[:—–-]/i;
+function leadingNames(rest: string, labelled = false): string[] {
+  rest = rest.split(DETAIL_LABEL)[0] ?? "";
   if (COMPANY.test(rest.split(/[,(\n]/)[0] ?? "")) return [];
   const out: string[] = [];
   for (const piece of rest.split(/,|;|\band\b|&|\(|\.(?:\s|$)|\bof\b|\t/)) {
     if (!piece.trim()) continue;
-    if (!isName(piece)) break;
+    if (!isName(piece, labelled)) break;
     out.push(norm(piece));
   }
   return out;
 }
 function nameVariants(full: string) {
   return (ph: string): Variant[] => {
-    const bare = full.replace(/^(?:Mr|Mrs|Ms|Miss|Mx|Dr|Prof)\.?\s+/, "");
+    const bare = full.replace(/^(?:Mr|Mrs|Ms|Miss|Mx|Dr|Prof)\.?\s+/i, "");
     const words = bare.split(" ");
     const first = words[0]!, surname = words[words.length - 1]!;
-    const list = [bare, bare.toUpperCase()];
+    const list = [bare, bare.toUpperCase(), bare.toLowerCase()];
     for (const t of TITLES) list.push(`${t} ${surname}`, `${t}. ${surname}`);
     if (first.length >= 3 && first !== surname && !AMBIGUOUS_FIRST.has(first)) list.push(first);
     return list.map((match) => ({ match, sent: ph }));
@@ -268,7 +270,18 @@ export function detectRedactions(text: string): Redaction[] {
   each(new RegExp(`(?<![A-Za-z0-9])${PC}(?![A-Za-z0-9])`, "g"), 0, (v) => { if (!property || !norm(property).endsWith(norm(v))) add({ kind: "address", label: "POSTCODE", value: v }); });
 
   // Names: labels, signature blocks and the parties sentence.
-  const person = (name: string, label: string) => { if (isName(name)) add({ kind: "name", label, value: name.replace(/^(?:Mr|Mrs|Ms|Miss|Mx|Dr|Prof)\.?\s+/, ""), variants: nameVariants(norm(name)) }); };
+  const person = (name: string, label: string, labelled = false) => { if (isName(name, labelled)) add({ kind: "name", label, value: name.replace(/^(?:Mr|Mrs|Ms|Miss|Mx|Dr|Prof)\.?\s+/i, ""), variants: nameVariants(norm(name)) }); };
+  // Match labels separately from values: a PDF can put the value on the next line,
+  // or several labelled fields on one line. Do not consume the next label.
+  const labels = /\b(lead tenant|joint tenant|tenant|guarantor|landlord|lessor|lessee|witness|occupier|occupant|student|full name|printed name|name)s?[ \t]*(?:\(?\d+\)?|[A-Z]\b)?[ \t]*(?:\(?name\)?|\(s\))?[ \t]*[:—–-]/gi;
+  for (const m of text.matchAll(labels)) {
+    const start = m.index + m[0].length;
+    const value = text.slice(start).match(/^[ \t]*(?:\r?\n[ \t]*)?([^\r\n]*)/)?.[1] ?? "";
+    for (const n of leadingNames(value, true)) {
+      cursor = text.indexOf(n, start);
+      person(n, ROLE[m[1]!.toLowerCase()] ?? "PERSON", true);
+    }
+  }
   for (const m of text.matchAll(/(?:^|[\n;(])[ \t]*(?:the[ \t]+)?(lead tenant|joint tenant|tenant|guarantor|landlord|lessor|lessee|witness|occupier|occupant|student)s?[ \t]*(?:\(?\d+\)?|[A-Z]\b)?[ \t]*(?:\(?name\)?|\(s\))?[ \t]*[:\-–—][ \t]*([^\n]+)/gi))
     for (const n of leadingNames(m[2]!)) { cursor = (m.index ?? 0) + m[0].indexOf(n); person(n, ROLE[m[1]!.toLowerCase()] ?? "PERSON"); }
   for (const m of text.matchAll(/(?:^|[\n;(])[ \t]*(?:signed(?:[ \t]+by)?(?:[ \t]+the)?(?:[ \t]+(tenant|guarantor|landlord|witness)s?)?|print(?:ed)?[ \t]+name|full[ \t]+name|name)[ \t]*(?:\(\d\))?[ \t]*[:\-–—][ \t]*([^\n]+)/gi))

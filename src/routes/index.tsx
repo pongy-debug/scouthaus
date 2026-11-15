@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-r
 import { FileSearch, House, Zap } from "lucide-react";
 import { Starfield } from "@/components/hh/Starfield";
 import { SiteLogo } from "@/components/hh/SiteNav";
+import { ThemeToggle } from "@/components/hh/ThemeToggle";
 import { getSpaceTarget, resetSpaceFlight, startSpaceFlight, useSpacePhase } from "@/lib/hh/transition";
 
 export const Route = createFileRoute("/")({
@@ -67,6 +68,7 @@ function Landing() {
     <div ref={scrollRef} data-leaving={leaving} className="scout-home min-h-screen">
       <header className="absolute inset-x-3 top-3 z-20 flex flex-wrap items-center gap-2 border border-transparent px-4 py-2.5">
         <SiteLogo />
+        <ThemeToggle />
       </header>
 
       <main>

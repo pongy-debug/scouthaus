@@ -361,6 +361,3 @@ html, body, .app-page, html.space-lock, html.space-lock body { background: var(-
   .app-shell--viewport .scanner-content { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .app-shell--viewport .scanner-content::-webkit-scrollbar { display: none; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .space-fx { display: none; }
-}

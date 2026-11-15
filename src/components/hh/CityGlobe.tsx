@@ -25,11 +25,11 @@ function Earth({ entering }: { entering: boolean }) {
 }
 
 export default function CityGlobe({ entering }: { entering: boolean }) {
-  return <Canvas camera={{ position: [0, 0, 3.8], fov: 43 }} dpr={[1, 1.5]} gl={{ alpha: true, antialias: true }}>
+  return <Canvas camera={{ position: [0, 0, 3.23], fov: 43 }} dpr={[1, 1.5]} gl={{ alpha: true, antialias: true }}>
     <ambientLight intensity={0.65} />
     <directionalLight position={[4, 2, 3]} intensity={1.6} color="#dbf2f5" />
     <pointLight position={[1.05, 1.05, 0.45]} intensity={5.2} distance={1.8} decay={2} color="#d2efff" />
-    <pointLight position={[-1.05, -1.05, 0.45]} intensity={1.6} distance={1.8} decay={2} color="#9bcde8" />
+    <pointLight position={[-1.05, -1.05, 0.45]} intensity={2} distance={1.8} decay={2} color="#9bcde8" />
     <Suspense fallback={null}><Earth entering={entering} /></Suspense>
   </Canvas>;
 }

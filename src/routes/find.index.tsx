@@ -66,10 +66,11 @@ function FindCity() {
       <main className={`city-picker relative isolate flex min-h-[75vh] flex-1 items-center justify-center overflow-hidden rounded-3xl px-6 py-16 md:px-12 ${entering ? "city-picker-entering" : ""}`} aria-busy={entering}>
         <Starfield className="city-picker-stars" />
         <div className="city-globe-stage pointer-events-none absolute inset-0 -z-20" aria-hidden="true">
-          {gl ? <GlobeBoundary><Suspense fallback={<div className="city-globe-fallback" />}><CityGlobe entering={entering} /></Suspense></GlobeBoundary> : <div className="city-globe-fallback" />}
+          {gl === true && <GlobeBoundary><Suspense fallback={null}><CityGlobe entering={entering} /></Suspense></GlobeBoundary>}
+          {gl === false && <div className="city-globe-fallback" />}
         </div>
         <div className="city-globe-shade pointer-events-none absolute inset-0 -z-10" />
-        <div className="city-picker-panel relative z-10 w-full max-w-[640px] text-center">
+        <div className="city-picker-panel relative z-10 w-full max-w-160 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">Your next chapter starts here</p>
           <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl">Which city are you looking in?</h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-300">Find your city. Explore its neighbourhoods. Find a place to call home.</p>
@@ -77,7 +78,7 @@ function FindCity() {
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input aria-label="Search for a city" role="combobox" aria-expanded={open} aria-controls="city-suggestions" aria-autocomplete="list" autoComplete="off" disabled={entering} value={q}
-                onChange={(e) => { setQ(e.target.value); setMissing(null); setHi(0); }} onKeyDown={onKey} placeholder="Start typing a city, e.g. Durham"
+                onChange={(e) => { setQ(e.target.value); setMissing(null); setHi(0); }} onKeyDown={onKey} placeholder="Search your city, e.g. Durham"
                 className="w-full rounded-2xl border border-white/15 bg-slate-950/50 py-4 pl-9 pr-3 shadow-lg shadow-black/10 backdrop-blur-sm text-sm outline-none focus:border-primary" />
             </div>
             {open && (

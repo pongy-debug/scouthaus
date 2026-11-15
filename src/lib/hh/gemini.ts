@@ -12,8 +12,8 @@ import { z } from "zod";
 import { toResult, type Flag, type ScanResult } from "./scanner";
 import { TERM_KEYS, type ContractSummary } from "./summary";
 
-const DEFAULT_MODEL = "gemini-3.6-flash"; // override with the GEMINI_MODEL secret
-const FALLBACK_MODEL = "gemini-2.5-flash"; // must be a model ID listed at ai.google.dev/gemini-api/docs/models
+const DEFAULT_MODEL = "gemini-3.8-flash"; // override with the GEMINI_MODEL secret
+const FALLBACK_MODEL = "gemini-3.6-flash"; // must be a model ID listed at ai.google.dev/gemini-api/docs/models
 const PRIMARY_TIMEOUT_MS = 90_000;
 const HEDGE_AFTER_MS = 12_000;
 const FALLBACK_TIMEOUT_MS = 120_000;

@@ -21,6 +21,38 @@ function mockAnswer(score: unknown) {
 }
 
 describe("Gemini contract scoring", () => {
+  it("uses 3.8 Flash by default without a second request when it succeeds", async () => {
+    mockAnswer(18);
+    vi.stubEnv("GEMINI_MODEL", "");
+    expect(await analyseContract({ data: { text: "Tenancy agreement" } })).toMatchObject({ ok: true });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fetch).mock.calls[0]![0]).toContain("/gemini-3.8-flash:generateContent");
+  });
+
+  it.each([429, 404, 503])("falls back from 3.8 to 3.6 when the primary returns %s", async (status) => {
+    mockAnswer(18);
+    vi.stubEnv("GEMINI_MODEL", "");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: false, status } as Response);
+    expect(await analyseContract({ data: { text: "Tenancy agreement" } })).toMatchObject({ ok: true });
+    expect(vi.mocked(fetch).mock.calls.map(([url]) => url)).toEqual([
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+    ]);
+  });
+
+  it("reports the fallback quota error if both models are exhausted", async () => {
+    mockAnswer(18);
+    vi.stubEnv("GEMINI_MODEL", "");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 429, text: async () => JSON.stringify({ error: { status: "RESOURCE_EXHAUSTED" } }) } as Response);
+    expect(await analyseContract({ data: { text: "Tenancy agreement" } })).toMatchObject({
+      ok: false, message: "Gemini (gemini-3.6-flash) returned 429 RESOURCE_EXHAUSTED",
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it.each([0, 18, 47, 73, 100])("preserves Gemini's score of %s and explanation", async (score) => {
     mockAnswer(score);
     const response = await analyseContract({ data: { text: "Tenancy agreement" } });

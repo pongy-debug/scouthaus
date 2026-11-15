@@ -20,6 +20,7 @@ function describe(a: MapAction, prev: AskMapState, areas: Area[], houses: House[
   if (f.availability !== p.availability) out.push(f.availability === "all" ? "Any availability" : `${AVAIL_LABEL[f.availability]} only`);
   if (f.type !== p.type) out.push(f.type === "all" ? "Any property type" : f.type === "studio" ? "Studios only" : "Shared houses only");
   if (a.layer !== prev.layer) out.push(`Layer: ${RISK_LAYERS.find((l) => l.id === a.layer)!.label}`);
+  if (a.query) out.push(`Search: “${a.query}”`);
   const h = a.houseId ? houses.find((x) => x.id === a.houseId) : undefined;
   if (h) { if (h.id !== prev.selectedId) out.push(`Flew to ${h.name}`); }
   else if (a.areaId === null) { if (prev.areaId || prev.selectedId) out.push("Back to all areas"); }

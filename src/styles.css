@@ -334,3 +334,6 @@ html.space-lock, html.space-lock body { background: #000; }
 @keyframes home-title-dot-settle { 0%, 94% { opacity: 0; } 100% { opacity: 1; } }
 
 .city-picker .city-picker-stars { z-index: -15; animation: none; }
+
+.space-star-window { position: absolute; inset: 0; }
+.scout-home[data-leaving="true"] .home-starlight { clip-path: inset(120px 0 0); }

@@ -66,7 +66,8 @@ function FindCity() {
       <main className={`city-picker relative isolate flex min-h-[75vh] flex-1 items-center justify-center overflow-hidden rounded-3xl px-6 py-16 md:px-12 ${entering ? "city-picker-entering" : ""}`} aria-busy={entering}>
         <Starfield className="city-picker-stars" />
         <div className="city-globe-stage pointer-events-none absolute inset-0 -z-20" aria-hidden="true">
-          {gl ? <GlobeBoundary><Suspense fallback={<div className="city-globe-fallback" />}><CityGlobe entering={entering} /></Suspense></GlobeBoundary> : <div className="city-globe-fallback" />}
+          {gl === true && <GlobeBoundary><Suspense fallback={null}><CityGlobe entering={entering} /></Suspense></GlobeBoundary>}
+          {gl === false && <div className="city-globe-fallback" />}
         </div>
         <div className="city-globe-shade pointer-events-none absolute inset-0 -z-10" />
         <div className="city-picker-panel relative z-10 w-full max-w-[640px] text-center">

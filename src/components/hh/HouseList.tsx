@@ -1,3 +1,4 @@
+import { HouseTimingAssessment } from "./HouseTimingAssessment";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { ExternalLink, Search, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -74,7 +75,8 @@ export function HouseList({ groups, grouped, hoverId, selectedId, availableOnly,
             {g.houses.map((h) => {
               const url = advertUrl(h);
               return (
-                <div key={h.id} onMouseEnter={() => onHover(h.id)}
+                <article key={h.id} className="mb-3 space-y-1">
+                <div onMouseEnter={() => onHover(h.id)}
                   className={`flex items-center rounded-md border transition ${h.id === selectedId ? "border-primary bg-primary/15" : h.id === hoverId ? "border-primary/60 bg-accent" : "border-transparent"}`}>
                   <button type="button" id={`house-option-${h.id}`} data-house={h.id} onFocus={() => onHover(h.id)} onClick={() => onPick(h)} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left">
                     <HouseThumb house={h} />
@@ -91,6 +93,8 @@ export function HouseList({ groups, grouped, hoverId, selectedId, availableOnly,
                     </a>
                   )}
                 </div>
+                <HouseTimingAssessment propertyId={h.id} />
+                </article>
               );
             })}
           </section>

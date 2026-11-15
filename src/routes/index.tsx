@@ -8,8 +8,8 @@ import { resetSpaceFlight, startSpaceFlight, useSpacePhase } from "@/lib/hh/tran
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Scouthaus — See the true cost of a student house before you sign" },
-      { name: "description", content: "Explore Durham student houses, understand energy bills and damp risk, and review your tenancy before you sign." },
+      { title: "Scouthaus — A little more clarity before you get the keys" },
+      { name: "description", content: "Look beyond the listing, explore your housing options, uncover hidden costs, understand your contract before signing it." },
       { property: "og:title", content: "Scouthaus — Student house hunting, X-rayed" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -72,18 +72,17 @@ function Landing() {
           <HomeCity side="left" />
           <HomeCity side="right" />
           <div className="home-intro-content">
-            <div className="home-eyebrow"><span className="size-1.5 rounded-full bg-(--home-blue)" /> A clearer view of student living</div>
             <h1 id="home-heading" aria-label="Scouthaus" className="mt-6 text-[clamp(3.6rem,8vw,6rem)] font-extrabold leading-[0.98] tracking-[-0.075em]">
               <span aria-hidden="true">{Array.from("Scouthaus").map((letter, index) => <span key={index} className={`home-title-letter ${index >= 5 ? "text-(--home-blue)" : "text-(--home-ink)"}`} style={{ animationDelay: `calc(var(--home-letter-start) + ${index} * var(--home-letter-step))` }}>{letter}</span>)}<span className="home-title-dot"><span className="home-title-dot-rest">.</span><svg className="home-title-star" viewBox="-50 -50 100 100" focusable="false"><defs><linearGradient id="home-title-star-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#f4fbff" /><stop offset="0.55" stopColor="#cae9f6" /><stop offset="1" stopColor="#7dbdd8" /></linearGradient></defs><path d="M0-47 11-15 45-15 18 6 28 39 0 20-28 39-18 6-45-15-11-15Z" fill="url(#home-title-star-fill)" stroke="#e4f7ff" strokeWidth="0.8" /></svg></span></span>
             </h1>
-            <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Your next home. The full picture.</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-(--home-muted) sm:text-base">Look beyond the listing. Explore Durham, uncover hidden costs, and understand your contract before you sign.</p>
+            <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">A little more clarity before you get the key.</h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-(--home-muted) sm:text-base">Look beyond the listing&nbsp;&nbsp;&bull;&nbsp;&nbsp;Explore your student housing options&nbsp;&nbsp;&bull;&nbsp;&nbsp;Uncover hidden costs&nbsp;&nbsp;&bull;&nbsp;&nbsp;Understand your contract before signing it</p>
             <nav aria-label="Main navigation" className="mt-8 grid w-full max-w-120 grid-cols-2 items-center gap-3 sm:gap-4">
               <Link to="/find" onClick={flyToFind} {...off} className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><House className="size-4 sm:size-5" />Find House</Link>
               <Link to="/scanner" onClick={block} {...off} className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><FileSearch className="size-4 sm:size-5" />Contract Check</Link>
             </nav>
 
-            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-(--home-muted)">Your next home, with fewer surprises.</p>
+            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-(--home-muted)">Your next home. The full picture. With fewer surprises.</p>
           </div>
           <a href="#neighbourhood" className="home-scroll-hint rounded-full px-4 py-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">Scroll to explore <span aria-hidden="true">↓</span></a>
 

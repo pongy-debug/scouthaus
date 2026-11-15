@@ -133,7 +133,7 @@ function CityMap({ cityId }: { cityId: string }) {
   const xray = selected && <PropertyDrawer onTour={openTour} house={selected} pinned={pinned.includes(selected.id)} onToggleCompare={() => toggleCompare(selected.id)} onClose={() => setSelectedId(null)} />;
 
   return (
-    <div className="flex min-h-screen flex-col gap-3 p-3 lg:h-[calc(100dvh-64px)]">
+    <div className="city-map-page flex min-h-screen flex-col gap-3 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <Crumbs demo={city.id === "durham"} items={shown
           ? [{ label: "Home", to: "/" }, { label: "Find House", to: "/find" }, { label: city.name, to: "/find/$city", params: { city: city.id } }, { label: shown.name }]

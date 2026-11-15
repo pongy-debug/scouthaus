@@ -20,8 +20,8 @@ export const Route = createFileRoute("/scanner")({
 
 function Scanner() {
   return (
-    <div className="flex min-h-screen flex-col gap-3 p-3 ">
-      <main className="mx-auto w-full max-w-5xl flex-1 px-1 sm:px-4"><ContractScanner /></main>
+    <div className="contract-check-page flex min-h-screen flex-col gap-3 p-3">
+      <main tabIndex={0} aria-label="Contract Check content" className="scanner-content mx-auto w-full max-w-5xl flex-1 px-1 sm:px-4"><ContractScanner /></main>
     </div>
   );
 }

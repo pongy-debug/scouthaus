@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight, EyeOff, Lock, RotateCcw, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { KIND_LABEL, applyRedactions, countByKind, type Redaction, type RedactionKind } from "@/lib/hh/redact";
 
@@ -37,10 +38,12 @@ export function RedactionList({ items, onToggle }: { items: Redaction[]; onToggl
  * The review step before anything is sent: what was removed, a preview of exactly what will be sent, and controls to
  * restore an item or redact a selection. All of it works on text held in browser memory.
  */
-export function PrivacyCheck({ text, items, busy, onToggle, onRedact, onAnalyse, onClear }: {
+export function PrivacyCheck({ text, items, busy, onToggle, onRedact, onAnalyse, onClear, onEditText }: {
   text: string; items: Redaction[]; busy: boolean;
-  onToggle: (id: string) => void; onRedact: (selection: string) => boolean; onAnalyse: () => void; onClear: () => void;
+  onToggle: (id: string) => void; onRedact: (selection: string) => boolean; onAnalyse: () => void; onClear: () => void; onEditText: (text: string) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draftText, setDraftText] = useState(text);
   const [view, setView] = useState<"sent" | "original">("sent");
   const [selection, setSelection] = useState("");
   const preview = useRef<HTMLPreElement>(null);
@@ -73,21 +76,31 @@ export function PrivacyCheck({ text, items, busy, onToggle, onRedact, onAnalyse,
 
       <div className="space-y-2">
         <h3 className="text-sm font-semibold">What was removed <span className="font-normal text-muted-foreground">· visible only on this device</span></h3>
-        <RedactionList items={items} onToggle={onToggle} />
+        <RedactionList items={items} {...(editing ? {} : { onToggle })} />
       </div>
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">{view === "sent" ? "What is sent" : "Original (stays on this device)"}</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" disabled={!selection} onMouseDown={(e) => e.preventDefault()} onClick={redactSelection}><EyeOff /> Redact this</Button>
+          <h3 className="text-sm font-semibold">{editing ? "Edit contract text" : view === "sent" ? "What is sent" : "Original (stays on this device)"}</h3>
+          {!editing && <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => { setDraftText(text); setSelection(""); setEditing(true); }}>Edit text</Button>
+            <Button size="sm" variant="outline" disabled={busy || !selection} onMouseDown={(e) => e.preventDefault()} onClick={redactSelection}><EyeOff /> Redact this</Button>
             <div className="flex rounded-md border border-border p-0.5 text-xs" role="group" aria-label="Preview">
               {(["original", "sent"] as const).map((v) => (
                 <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={`rounded px-2.5 py-1 ${view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{v === "sent" ? "Show what is sent" : "Show original"}</button>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
+        {editing ? <div className="space-y-3">
+          <label htmlFor="contract-edit" className="text-sm font-medium">Edit contract text</label>
+          <Textarea id="contract-edit" value={draftText} disabled={busy} onChange={(e) => setDraftText(e.target.value)} className="min-h-72 resize-y bg-background/50 font-mono text-xs leading-relaxed" />
+          <p className="text-xs text-muted-foreground">Changes stay on this device. Applying changes detects personal details again and resets manual redactions. Review the preview before analysis.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={busy || !draftText.trim()} onClick={() => { onEditText(draftText); setEditing(false); setView("sent"); setSelection(""); }}>Apply changes</Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => { setDraftText(text); setEditing(false); }}>Cancel editing</Button>
+          </div>
+        </div> : <>
         <pre ref={preview} aria-label={view === "sent" ? "Redacted contract preview" : "Original contract preview"} onMouseUp={readSelection} onKeyUp={readSelection} onTouchEnd={readSelection}
           className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-background/50 p-4 font-mono text-xs leading-relaxed">
           {parts.map((p, i) => p.id
@@ -95,10 +108,11 @@ export function PrivacyCheck({ text, items, busy, onToggle, onRedact, onAnalyse,
             : <span key={i}>{p.original}</span>)}
         </pre>
         <p className="text-xs text-muted-foreground">Missed something? Select it in the preview and choose “Redact this”. Wrongly removed? Use “Restore” in the list above.</p>
+        </>}
       </div>
 
       <div className="space-y-2 border-t border-border pt-5">
-        <Button disabled={busy} onClick={onAnalyse} className="w-full sm:w-auto">Analyse redacted contract <ArrowRight /></Button>
+        <Button disabled={busy || editing} onClick={onAnalyse} className="w-full sm:w-auto">Analyse redacted contract <ArrowRight /></Button>
         <p className="text-xs text-muted-foreground">Only the redacted version is sent to Google Gemini. Your personal details stay in your browser.</p>
       </div>
     </section>

@@ -340,7 +340,21 @@ html, body, .app-page, html.space-lock, html.space-lock body { background: var(-
 
 /* One base canvas across routes. Artwork remains inside the page's content. */
 .scout-home { background: var(--background); }
-.app-page { min-height: calc(100dvh - 64px); }
+.app-shell { display: flex; min-height: 100dvh; flex-direction: column; }
+.app-navigation { flex: none; }
+.app-page { flex: 1; min-height: 0; }
+@media (min-width: 1024px) and (min-height: 600px) {
+  .app-shell--viewport { height: 100dvh; overflow: hidden; }
+  .app-shell--viewport > .app-page { overflow: hidden; }
+  .app-shell--viewport .scout-home { height: 100%; min-height: 0; }
+  .app-shell--viewport .scout-home > main { height: 100%; }
+  .app-shell--viewport .home-intro,
+  .app-shell--viewport .home-explorer { min-height: 100%; }
+  .app-shell--viewport .home-intro { padding: clamp(32px, 5vh, 64px) 20px clamp(64px, 10vh, 100px); }
+  .app-shell--viewport .home-scroll-hint { bottom: 20px; }
+  .app-shell--viewport .find-city-page { height: 100%; min-height: 0; }
+  .app-shell--viewport .find-city-page .city-picker { min-height: 0; }
+}
 @media (prefers-reduced-motion: reduce) {
   .space-fx { display: none; }
 }

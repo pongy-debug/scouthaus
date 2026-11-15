@@ -51,7 +51,7 @@ function Landing() {
   const block = (e: MouseEvent<HTMLAnchorElement>) => { if (leaving) e.preventDefault(); };
   const off = leaving ? { "aria-disabled": true, tabIndex: -1 } : {};
   return (
-    <div ref={scrollRef} data-leaving={leaving} className="scout-home min-h-screen">
+    <div ref={scrollRef} data-leaving={leaving} className="scout-home">
 
 
       <main>

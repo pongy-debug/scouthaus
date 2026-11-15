@@ -6,6 +6,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
   type ErrorComponentProps,
@@ -125,15 +126,19 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const path = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") || "/" });
+  const viewportPage = path === "/" || path === "/find";
 
   return (
     <QueryClientProvider client={queryClient}>
       <PageTransitions />
       <IdleRoutes />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <div className="p-3 pb-0"><SiteNav /></div>
-      <div className="app-page"><Outlet /></div>
-      <SiteFooter />
+      <div className={`app-shell ${viewportPage ? "app-shell--viewport" : ""}`}>
+        <div className="app-navigation p-3 pb-0"><SiteNav /></div>
+        <div className="app-page"><Outlet /></div>
+        <SiteFooter />
+      </div>
       {/* Shared page fade; mounted here so it survives route changes. */}
       <SpaceTransition />
       <Toaster theme="dark" position="bottom-center" />

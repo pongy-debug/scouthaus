@@ -60,7 +60,7 @@ function FindCity() {
     setHi((active + (e.key === "ArrowDown" ? 1 : sugg.length - 1)) % sugg.length);
   };
   return (
-    <div className="flex min-h-screen flex-col gap-3 p-3">
+    <div className="find-city-page flex min-h-screen flex-col gap-3 p-3">
       <div className="px-1"><Crumbs items={[{ label: "Home", to: "/" }, { label: "Find House" }]} /></div>
       <main className={`city-picker relative isolate flex min-h-[75vh] flex-1 items-center justify-center overflow-hidden rounded-3xl px-6 py-16 md:px-12 ${entering ? "city-picker-entering" : ""}`} aria-busy={entering}>
         <Starfield className="city-picker-stars" />

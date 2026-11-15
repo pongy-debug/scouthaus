@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as ScannerRouteImport } from './routes/scanner'
 import { Route as FindIndexRouteImport } from './routes/find.index'
+import { Route as TourFirstRuthHouseRouteImport } from './routes/tour.first-ruth-house'
 import { Route as FindCityIndexRouteImport } from './routes/find.$city.index'
 import { Route as FindCityAreaRouteImport } from './routes/find.$city.$area'
 
@@ -36,6 +37,11 @@ const FindIndexRoute = FindIndexRouteImport.update({
   path: '/find/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TourFirstRuthHouseRoute = TourFirstRuthHouseRouteImport.update({
+  id: '/tour/first-ruth-house',
+  path: '/tour/first-ruth-house',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FindCityIndexRoute = FindCityIndexRouteImport.update({
   id: '/find/$city/',
   path: '/find/$city/',
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/scanner': typeof ScannerRoute
+  '/tour/first-ruth-house': typeof TourFirstRuthHouseRoute
   '/find/': typeof FindIndexRoute
   '/find/$city/$area': typeof FindCityAreaRoute
   '/find/$city/': typeof FindCityIndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/scanner': typeof ScannerRoute
+  '/tour/first-ruth-house': typeof TourFirstRuthHouseRoute
   '/find': typeof FindIndexRoute
   '/find/$city/$area': typeof FindCityAreaRoute
   '/find/$city': typeof FindCityIndexRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/scanner': typeof ScannerRoute
+  '/tour/first-ruth-house': typeof TourFirstRuthHouseRoute
   '/find/': typeof FindIndexRoute
   '/find/$city/$area': typeof FindCityAreaRoute
   '/find/$city/': typeof FindCityIndexRoute
@@ -75,14 +84,28 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/app' | '/scanner' | '/find/' | '/find/$city/$area' | '/find/$city/'
+    | '/'
+    | '/app'
+    | '/scanner'
+    | '/tour/first-ruth-house'
+    | '/find/'
+    | '/find/$city/$area'
+    | '/find/$city/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/scanner' | '/find' | '/find/$city/$area' | '/find/$city'
+  to:
+    | '/'
+    | '/app'
+    | '/scanner'
+    | '/tour/first-ruth-house'
+    | '/find'
+    | '/find/$city/$area'
+    | '/find/$city'
   id:
     | '__root__'
     | '/'
     | '/app'
     | '/scanner'
+    | '/tour/first-ruth-house'
     | '/find/'
     | '/find/$city/$area'
     | '/find/$city/'
@@ -92,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
   ScannerRoute: typeof ScannerRoute
+  TourFirstRuthHouseRoute: typeof TourFirstRuthHouseRoute
   FindIndexRoute: typeof FindIndexRoute
   FindCityAreaRoute: typeof FindCityAreaRoute
   FindCityIndexRoute: typeof FindCityIndexRoute
@@ -127,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FindIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tour/first-ruth-house': {
+      id: '/tour/first-ruth-house'
+      path: '/tour/first-ruth-house'
+      fullPath: '/tour/first-ruth-house'
+      preLoaderRoute: typeof TourFirstRuthHouseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/find/$city/': {
       id: '/find/$city/'
       path: '/find/$city'
@@ -148,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
   ScannerRoute: ScannerRoute,
+  TourFirstRuthHouseRoute: TourFirstRuthHouseRoute,
   FindIndexRoute: FindIndexRoute,
   FindCityAreaRoute: FindCityAreaRoute,
   FindCityIndexRoute: FindCityIndexRoute,

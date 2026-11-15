@@ -76,20 +76,3 @@ export function toResult(clauses: number, flags: Flag[], unenforceable: number):
   const score = flags.length ? Math.min(99, Math.round(raw + 8)) : 6;
   return { clauses, flags, score, illegalFees, unenforceable };
 }
-
-export function buildEmail(flags: Flag[], address = "the property"): string {
-  const items = flags.map((f) => `• Clause ${f.clause}: I'd ask that you ${f.ask}.\n  (${f.statute.split(" — ")[0]})`).join("\n\n");
-  return `Subject: Requested amendments to tenancy agreement — ${address}
-
-Dear Letting Agent,
-
-Thank you for sending the draft assured shorthold tenancy agreement for ${address}. Before signing, I have reviewed it and would like to raise ${flags.length === 1 ? "one clause" : `${flags.length} clauses`} that appear to conflict with English housing law:
-
-${items}
-
-I'm keen to go ahead with the tenancy and would be grateful if you could send an amended agreement reflecting these points. Please let me know if you'd like to discuss any of them.
-
-Kind regards,
-[Your name]
-[Phone number]`;
-}

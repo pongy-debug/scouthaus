@@ -51,7 +51,7 @@ function RuthTour() {
           {gl !== false && <Button size="sm" variant="outline" onClick={() => setPhotos((p) => !p)}><Images />{photos ? "Back to 3D" : "View original photos"}</Button>}
         </div>
         {gl === false && <p role="status" className="px-4 pt-4 text-sm">3D is unavailable on this device. You can still explore all four photos.</p>}
-        <div className="h-[75vh] min-h-145">
+        <div className="h-[75vh] min-h-[580px]">
           {photos || gl === false ? <Photos selected={selectedPhoto} onSelect={setSelectedPhoto} /> : gl ?
             <iframe title="Ruth First House Flat 4 interactive 3D tour" src={MODEL} sandbox="allow-scripts" allow="fullscreen" allowFullScreen className="h-full w-full border-0" /> :
             <p role="status" className="p-6 text-sm">Checking 3D support...</p>}

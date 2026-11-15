@@ -3,8 +3,8 @@ import { Starfield } from "@/components/hh/Starfield";
 import { useSpacePhase } from "@/lib/hh/transition";
 
 /**
- * Full-screen starry overlay for page-to-page transitions. It lives in the root layout, so it stays mounted while the
- * route underneath changes. Renders nothing when no transition is running.
+ * Full-screen starry overlay for the Home → Find House transition. It lives in the root layout, so it stays mounted while
+ * the route underneath changes. Renders nothing when no transition is running.
  */
 export function SpaceTransition() {
   const phase = useSpacePhase();

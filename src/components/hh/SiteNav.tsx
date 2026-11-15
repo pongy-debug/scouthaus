@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { ThemeToggle } from "@/components/hh/ThemeToggle";
 
 export function SiteLogo() {
   return <Link to="/" aria-label="Scouthaus home" className="mr-2 text-xl font-extrabold tracking-tight text-foreground">Scout<span className="text-primary">haus</span></Link>;
@@ -16,7 +15,6 @@ export function SiteNav() {
         <Link to="/scanner" className={cls} activeProps={active}>Contract Check</Link>
         <Link to="/tour/first-ruth-house" className={cls} activeProps={active}>Virtual Tour</Link>
       </nav>
-      <ThemeToggle />
     </header>
   );
 }

@@ -151,45 +151,6 @@
   --shadow-glow: 0 0 24px -6px color-mix(in oklab, var(--primary) 60%, transparent);
 }
 
-html.light {
-  --background: oklch(0.98 0.008 240);
-  --foreground: oklch(0.2 0.025 260);
-  --card: oklch(1 0 0 / 0.8);
-  --card-foreground: oklch(0.2 0.025 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.025 260);
-  --primary: oklch(0.52 0.15 220);
-  --primary-foreground: oklch(0.99 0.005 240);
-  --secondary: oklch(0.93 0.02 250);
-  --secondary-foreground: oklch(0.25 0.03 260);
-  --muted: oklch(0.93 0.018 250);
-  --muted-foreground: oklch(0.46 0.035 255);
-  --accent: oklch(0.9 0.035 225);
-  --accent-foreground: oklch(0.22 0.03 255);
-  --destructive: oklch(0.58 0.2 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --warning: oklch(0.7 0.15 70);
-  --warning-foreground: oklch(0.22 0.04 60);
-  --success: oklch(0.58 0.15 155);
-  --border: oklch(0.25 0.03 260 / 0.16);
-  --input: oklch(0.25 0.03 260 / 0.2);
-  --ring: oklch(0.52 0.15 220);
-  --chart-1: oklch(0.52 0.15 220);
-  --chart-2: oklch(0.7 0.15 70);
-  --chart-3: oklch(0.58 0.2 25);
-  --chart-4: oklch(0.58 0.15 155);
-  --chart-5: oklch(0.5 0.1 250);
-  --sidebar: oklch(0.96 0.012 250);
-  --sidebar-foreground: oklch(0.2 0.025 260);
-  --sidebar-primary: oklch(0.52 0.15 220);
-  --sidebar-primary-foreground: oklch(0.99 0.005 240);
-  --sidebar-accent: oklch(0.9 0.035 225);
-  --sidebar-accent-foreground: oklch(0.22 0.03 255);
-  --sidebar-border: oklch(0.25 0.03 260 / 0.16);
-  --sidebar-ring: oklch(0.52 0.15 220);
-  --shadow-glow: 0 0 24px -6px color-mix(in oklab, var(--primary) 35%, transparent);
-}
-
 @layer base {
   * { border-color: var(--color-border); }
   body {
@@ -242,7 +203,7 @@ html.light {
 .home-intro-content { display: flex; width: 100%; flex-direction: column; align-items: center; }
 html.space-lock { overflow: hidden; }
 html.space-lock, html.space-lock body { background: #000; }
-.space-fx { position: fixed; inset: 0; z-index: 100; background: #000; }
+.space-fx { position: fixed; inset: 0; z-index: 100; }
 .space-curtain { position: absolute; inset: 0; background: #000; }
 .space-fx .space-stars { z-index: 1; animation: none; }
 .space-fadein, .space-fadeout { pointer-events: none; }
@@ -257,50 +218,6 @@ html.space-lock, html.space-lock body { background: #000; }
 .home-neighbourhood-grid { min-height: 380px; }
 .home-neighbourhood-art { height: clamp(300px, 33vw, 480px); }
 .home-footer { align-self: stretch; margin: 12px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); }
-
-html.light .city-picker {
-  background: radial-gradient(ellipse at 80% 40%, oklch(0.72 0.08 220 / 0.22), transparent 60%), oklch(0.94 0.02 250);
-}
-html.light .city-globe-shade {
-  background: radial-gradient(ellipse at center, oklch(0.98 0.01 240 / 0.82) 0%, oklch(0.98 0.01 240 / 0.62) 12%, transparent 43%), linear-gradient(0deg, oklch(0.94 0.02 250 / 0.55), transparent 45%);
-}
-html.light .home-intro {
-  background: radial-gradient(ellipse at 50% 40%, oklch(0.78 0.08 275 / 0.28), transparent 65%), oklch(0.96 0.015 250);
-}
-html.light .home-explorer {
-  background: linear-gradient(to bottom, oklch(0.9 0.04 225), transparent 220px), radial-gradient(ellipse at 80% 45%, oklch(0.72 0.1 235 / 0.2), transparent 65%), linear-gradient(to bottom, oklch(0.9 0.04 225), oklch(0.95 0.015 250));
-}
-html.light .text-white,
-html.light .text-slate-100 { color: var(--foreground); }
-html.light .text-slate-200,
-html.light .text-slate-300,
-html.light .text-slate-400 { color: var(--muted-foreground); }
-html.light [class~="bg-slate-950/50"],
-html.light [class~="bg-slate-950/70"],
-html.light [class~="bg-slate-950/75"] { background-color: color-mix(in oklab, var(--background) 78%, transparent); }
-
-/* The landing page keeps its night-sky art direction in both app themes. */
-html.light .scout-home {
-  --background: oklch(0.16 0.025 265);
-  --foreground: oklch(0.94 0.01 240);
-  --card: oklch(0.22 0.03 262 / 0.55);
-  --primary: oklch(0.72 0.13 215);
-  --muted-foreground: oklch(0.68 0.025 250);
-  --border: oklch(1 0 0 / 0.09);
-  color: var(--foreground);
-  background: radial-gradient(ellipse at 15% 0%, oklch(0.72 0.13 215 / 0.07), transparent 55%), var(--background);
-}
-html.light .scout-home .home-intro {
-  background: radial-gradient(ellipse at 50% 40%, oklch(0.3 0.08 275 / 0.3), transparent 65%), oklch(0.12 0.035 270);
-}
-html.light .scout-home .home-explorer {
-  background: linear-gradient(to bottom, var(--home-transition), transparent 220px), radial-gradient(ellipse at 80% 45%, oklch(0.36 0.09 235 / 0.45), transparent 65%), linear-gradient(to bottom, var(--home-transition), oklch(0.15 0.035 260));
-}
-html.light .scout-home .text-white,
-html.light .scout-home .text-slate-100 { color: oklch(0.94 0.01 240); }
-html.light .scout-home .text-slate-200,
-html.light .scout-home .text-slate-300,
-html.light .scout-home .text-slate-400 { color: oklch(0.68 0.025 250); }
 
 .home-house-glow { position: absolute; width: 80%; height: 75%; border-radius: 50%; background: radial-gradient(ellipse, oklch(0.58 0.2 250 / 0.32), transparent 70%); }
 .home-house { display: block; transform: scale(1.05); transform-origin: center; }

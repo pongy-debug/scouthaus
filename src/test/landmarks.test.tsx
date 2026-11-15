@@ -11,7 +11,7 @@ const gl = vi.hoisted(() => {
     constructor(o: { container: HTMLElement }) { state.container = o.container; state.handlers.clear(); state.layers.clear(); state.sources.clear(); queueMicrotask(() => this.fire("load")); }
     fire(type: string, e = { point: { x: 100, y: 100 } }) { for (const h of state.handlers.get(type) ?? []) h(e); }
     on(type: string, h: Handler) { state.handlers.set(type, [...(state.handlers.get(type) ?? []), h]); }
-    addControl() {} remove() {} flyTo() {} setLayoutProperty() {} setFeatureState() {}
+    addControl() {} remove() {} flyTo() {} jumpTo() {} stop() {} once() {} setLayoutProperty() {} setFeatureState() {}
     getStyle() { return { layers: [] }; }
     getContainer() { return state.container!; } getCanvasContainer() { return state.container!; }
     getCanvas() { return state.container!; }

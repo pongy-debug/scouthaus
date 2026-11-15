@@ -14,8 +14,8 @@ vi.mock("@/components/hh/HousePhoto", () => ({ HouseThumb: () => null }));
 vi.mock("@/components/hh/PropertyDrawer", () => ({ PropertyDrawer: ({ house }: { house: House }) => <div data-testid="xray">X-Ray: {house.name}</div> }));
 vi.mock("@/components/hh/AskMap", () => ({ AskMap: ({ onAction }: { onAction: (a: MapAction) => void }) => { assistant.act = onAction as (a: unknown) => void; return null; } }));
 // The map itself needs WebGL; this stand-in shows what the page tells it to do (camera target, highlight, area).
-vi.mock("@/components/hh/StreetMap", () => ({ default: (p: { area: Area | null; selectedId: string | null; houses: House[] }) =>
-  <div data-testid="map" data-area={p.area?.id ?? ""} data-selected={p.selectedId ?? ""} data-houses={p.houses.length} /> }));
+vi.mock("@/components/hh/StreetMap", () => ({ default: (p: { area: Area | null; selectedId: string | null; houses: House[]; onSettled?: (id: string | null) => void }) =>
+  <button data-testid="map" data-area={p.area?.id ?? ""} data-selected={p.selectedId ?? ""} data-houses={p.houses.length} onClick={() => p.onSettled?.(p.area?.id ?? null)} /> }));
 import { Route } from "@/routes/find.$city.index";
 
 const Page = Route.options.component as ComponentType;
@@ -139,4 +139,22 @@ it("opens the top-floor tour within Find House and returns to the same Claypath 
   fireEvent.click(screen.getByRole("button", { name: "Back to building" }));
   expect(screen.queryByTitle("Ruth First House Flat 4 interactive 3D tour")).not.toBeInTheDocument();
   expect(screen.getByTestId("map")).toHaveAttribute("data-area", "claypath");
+});
+
+it("zoom first: picking an area changes the URL at once without remounting the map, and the list switches only when the camera arrives", async () => {
+  render(<Harness cityId="durham" />);
+  const map = await screen.findByTestId("map");
+  type("claypath");
+  const first = durham.houses.find((h) => h.id === results()[0])!;
+  type("");
+  fireEvent.click(document.querySelector(`[data-house="${first.id}"]`)!); // choose a house in the list → its area is entered
+  expect(screen.getByTestId("map")).toBe(map); // same map element: no remount
+  expect(map).toHaveAttribute("data-area", first.area); // the camera has been sent off…
+  expect(screen.queryByRole("button", { name: /Back to all areas/ })).toBeNull(); // …but the area view is not shown yet
+  fireEvent.click(map); // the map reports the camera has arrived
+  expect(screen.getByRole("button", { name: /Back to all areas/ })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: /Back to all areas/ }));
+  expect(map).toHaveAttribute("data-area", "");
+  expect(screen.queryByRole("button", { name: /Back to all areas/ })).toBeNull();
+  expect(screen.getByTestId("map")).toBe(map);
 });

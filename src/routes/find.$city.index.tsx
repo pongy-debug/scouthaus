@@ -66,6 +66,17 @@ function CityMap({ cityId }: { cityId: string }) {
   const [compareOpen, setCompareOpen] = useState(false);
   const areaId = area?.id ?? null;
   const previousAreaId = useRef(areaId);
+  // Zoom first: `area` (the URL) changes on the click and sends the camera off; `shown` — the area whose houses,
+  // breadcrumb and Back button are on screen — only follows once the map says the camera has arrived. Leaving an
+  // area, and opening one directly by URL, apply immediately.
+  const [shownId, setShownId] = useState(areaId);
+  const liveArea = useRef(areaId); liveArea.current = areaId;
+  useEffect(() => {
+    if (areaId === null || gl === false) { setShownId(areaId); return; }
+    const late = setTimeout(() => setShownId(areaId), 3000); // never leave the list behind if the map cannot report
+    return () => clearTimeout(late);
+  }, [areaId, gl]);
+  const shown = city.areas.find((a) => a.active && a.id === shownId) ?? null;
 
   // Breadcrumbs and browser Back also return to the overview without using the button.
   useEffect(() => {
@@ -80,9 +91,9 @@ function CityMap({ cityId }: { cityId: string }) {
   // One search state for the list's search box and the map assistant; it combines with every filter.
   const houses = applyFilters(city.houses, filters).filter((house) => matchesSearch(city, house, houseQuery));
   const selected = houses.find((h) => h.id === selectedId) ?? null;
-  const groups = (area ? [area] : city.areas.filter((a) => a.active)).map((a) => ({ area: a, houses: houses.filter((h) => h.area === a.id) }));
+  const groups = (shown ? [shown] : city.areas.filter((a) => a.active)).map((a) => ({ area: a, houses: houses.filter((h) => h.area === a.id) }));
   const listed = groups.reduce((n, g) => n + g.houses.length, 0);
-  const inView = area ? city.houses.filter((h) => h.area === area.id).length : city.houses.length;
+  const inView = shown ? city.houses.filter((h) => h.area === shown.id).length : city.houses.length;
   const count = listed === inView ? `${listed}` : `${listed} of ${inView}`;
   const searchFor = (q: string) => { setHouseQuery(q); setSelectedId(null); setHoverId(null); };
   const rents = rentRange(city);
@@ -116,18 +127,18 @@ function CityMap({ cityId }: { cityId: string }) {
     else if (a.areaId !== undefined) { setSelectedId(null); setArea(a.areaId); }
   };
 
-  const list = <HouseList groups={groups} grouped={!area} hoverId={hoverId} selectedId={selectedId} onHover={setHoverId} onPick={openHouse}
+  const list = <HouseList groups={groups} grouped={!shown} hoverId={hoverId} selectedId={selectedId} onHover={setHoverId} onPick={openHouse}
     availableOnly={filters.availability === "available"} onAvailableOnly={(v) => set("availability", v ? "available" : "all")}
-    query={houseQuery} onQuery={searchFor} cityName={city.name} {...(area ? { onSearchCity: () => setArea(null) } : {})} />;
+    query={houseQuery} onQuery={searchFor} cityName={city.name} {...(shown ? { onSearchCity: () => setArea(null) } : {})} />;
   const xray = selected && <PropertyDrawer onTour={openTour} house={selected} pinned={pinned.includes(selected.id)} onToggleCompare={() => toggleCompare(selected.id)} onClose={() => setSelectedId(null)} />;
 
   return (
     <div className="flex min-h-screen flex-col gap-3 p-3 lg:h-[calc(100dvh-64px)]">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <Crumbs demo={city.id === "durham"} items={area
-          ? [{ label: "Home", to: "/" }, { label: "Find House", to: "/find" }, { label: city.name, to: "/find/$city", params: { city: city.id } }, { label: area.name }]
+        <Crumbs demo={city.id === "durham"} items={shown
+          ? [{ label: "Home", to: "/" }, { label: "Find House", to: "/find" }, { label: city.name, to: "/find/$city", params: { city: city.id } }, { label: shown.name }]
           : [{ label: "Home", to: "/" }, { label: "Find House", to: "/find" }, { label: city.name }]} />
-        {area
+        {shown
           ? <Button size="sm" variant="outline" onClick={() => { setSelectedId(null); setArea(null); }}><ArrowLeft /> Back to all areas</Button>
           : <span className="font-mono text-[10px] text-muted-foreground">hover an area · click to fly in · drag to orbit</span>}
       </div>
@@ -167,7 +178,8 @@ function CityMap({ cityId }: { cityId: string }) {
             : city.areas.map((a) => { const [x, z] = overviewPos(city, a); return { id: a.id, x, z, label: `${a.name} · ${a.postcode}${a.active ? "" : " · Coming soon"}`, tone: a.active ? "primary" : "muted", onClick: a.active ? () => pickArea(a.id) : undefined }; })} />
         ) : gl ? (
           <Suspense fallback={<Skeleton className="h-full w-full" />}>
-            <StreetMap onTour={openTour} city={city} area={area} houses={houses} layer={layer} selectedId={selected?.id ?? null} hoverId={hoverId} onPickArea={pickArea} onOpen={openHouse} onHover={setHoverId} />
+            <StreetMap onTour={openTour} city={city} area={area} houses={houses} layer={layer} selectedId={selected?.id ?? null} hoverId={hoverId} onPickArea={pickArea} onOpen={openHouse} onHover={setHoverId}
+              onSettled={(id) => { if (id === liveArea.current) setShownId(id); }} />
           </Suspense>
         ) : <Skeleton className="h-full w-full" />}
 
@@ -215,7 +227,7 @@ function CityMap({ cityId }: { cityId: string }) {
           <Drawer shouldScaleBackground={false} open={showList} onOpenChange={setListOpen}>
             <DrawerContent className="h-[70vh]">
               <DrawerTitle className="px-3 pt-3 text-base">Houses ({count})</DrawerTitle>
-              <DrawerDescription className="px-3 pb-1 text-xs">{area ? area.name : `All areas in ${city.name}`} · tap a house to fly to it</DrawerDescription>
+              <DrawerDescription className="px-3 pb-1 text-xs">{shown ? shown.name : `All areas in ${city.name}`} · tap a house to fly to it</DrawerDescription>
               {list}
             </DrawerContent>
           </Drawer>

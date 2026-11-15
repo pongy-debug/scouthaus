@@ -8,7 +8,7 @@ export function SiteNav() {
   const cls = "rounded-md px-2.5 py-1 text-xs text-muted-foreground transition hover:text-foreground";
   const active = { className: "rounded-md px-2.5 py-1 text-xs bg-primary/15 text-primary" };
   return (
-    <header className="glass flex flex-wrap items-center gap-2 px-4 py-2.5">
+    <header data-site-nav className="glass flex flex-wrap items-center gap-2 px-4 py-2.5">
       <SiteLogo />
       <nav className="flex flex-wrap gap-1">
         <Link to="/find" className={cls} activeProps={active}>Find House</Link>

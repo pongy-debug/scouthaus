@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Component, lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Component, lazy, Suspense, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Starfield } from "@/components/hh/Starfield";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,19 +35,12 @@ function FindCity() {
   const [missing, setMissing] = useState<string | null>(null);
   const [hi, setHi] = useState(0);
   const gl = useWebGL();
+  // Opening a city is an ordinary page navigation: the shared page transition handles it, with no animation of its own.
   const [entering, setEntering] = useState(false);
-  const [destination, setDestination] = useState("");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    return () => { if (timer.current) clearTimeout(timer.current); };
-  }, []);
   const go = (id: string) => {
-    if (entering || timer.current) return;
+    if (entering) return;
     setEntering(true);
-    setDestination(findCity(id)?.name ?? id);
-    timer.current = setTimeout(() => {
-      void nav({ to: "/find/$city", params: { city: id } }).finally(() => { setEntering(false); timer.current = null; });
-    }, 2200);
+    void nav({ to: "/find/$city", params: { city: id } }).finally(() => setEntering(false));
   };
   // Suggestions only appear once something is typed and it matches the start of a city name.
   const sugg = q.trim() ? suggestCities(q) : [];
@@ -62,10 +55,10 @@ function FindCity() {
   return (
     <div className="find-city-page flex min-h-screen flex-col gap-3 p-3">
       <div className="px-1"><Crumbs items={[{ label: "Home", to: "/" }, { label: "Find House" }]} /></div>
-      <main className={`city-picker relative isolate flex min-h-[75vh] flex-1 items-center justify-center overflow-hidden rounded-3xl px-6 py-16 md:px-12 ${entering ? "city-picker-entering" : ""}`} aria-busy={entering}>
+      <main className={`city-picker relative isolate flex min-h-[75vh] flex-1 items-center justify-center overflow-hidden rounded-3xl px-6 py-16 md:px-12`} aria-busy={entering}>
         <Starfield className="city-picker-stars" />
         <div className="city-globe-stage pointer-events-none absolute inset-0 -z-20" aria-hidden="true">
-          {gl === true && <GlobeBoundary><Suspense fallback={null}><CityGlobe entering={entering} /></Suspense></GlobeBoundary>}
+          {gl === true && <GlobeBoundary><Suspense fallback={null}><CityGlobe entering={false} /></Suspense></GlobeBoundary>}
           {gl === false && <div className="city-globe-fallback" />}
         </div>
         <div className="city-globe-shade pointer-events-none absolute inset-0 -z-10" />
@@ -99,7 +92,6 @@ function FindCity() {
             </div>
           )}
         </div>
-        {entering && <p role="status" className="absolute bottom-12 inset-x-4 text-center text-sm font-medium tracking-wide text-white">Flying into {destination}…</p>}
       </main>
     </div>
   );

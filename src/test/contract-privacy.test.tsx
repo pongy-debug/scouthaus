@@ -5,7 +5,16 @@ vi.mock("@/lib/hh/gemini", () => ({ analyseContract, summariseContract, draftEma
 vi.mock("@/lib/hh/pdf", () => ({ readPdf }));
 import { ScannerSession } from "@/components/hh/ScannerSession";
 import { ContractScanner } from "@/components/hh/ContractScanner";
+import { ContractReadError } from "@/lib/hh/upload";
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
+it.each(["This PDF exceeds the 50-page limit.", "This document exceeds the limit of 20 scanned pages.", "This image exceeds 20 megapixels.", "We couldn’t resize this document for text recognition."])("shows a persistent reading error without sending partial text: %s", async (message) => {
+  readPdf.mockRejectedValue(new ContractReadError(message));
+  render(<ScannerSession initialInput={{ file: new File(["pdf"], "contract.pdf", { type: "application/pdf" }) }} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(message);
+  expect(screen.queryByRole("button", { name: /Analyse redacted contract/ })).toBeNull();
+  expect(analyseContract).not.toHaveBeenCalled();
+  expect(summariseContract).not.toHaveBeenCalled();
+});
 it("redacts pasted text and waits for the privacy check before sending it, then falls back locally", async () => {
   analyseContract.mockResolvedValue({ ok: false, reason: "no-key", message: "No key" });
   summariseContract.mockResolvedValue({ ok: false, reason: "no-key", message: "No key" });

@@ -13,12 +13,13 @@ import { contractLines, findClauseLine, mapSummary, riskLevel } from "@/lib/hh/s
 import { PrivacyCheck, RedactionList } from "@/components/hh/PrivacyCheck";
 import { SummaryPanel, type SummaryState } from "@/components/hh/SummaryPanel";
 import { EmailDrafter } from "@/components/hh/EmailDrafter";
+import { CONTRACT_FILE_ACCEPT, CONTRACT_FILE_HINT, ContractReadError, contractFileError } from "@/lib/hh/upload";
 
 // PDFs and photos are read locally (pdf.js text layer, OCR for scanned pages); the reader is loaded on first use.
 async function readFile(file: File, progress: (m: string) => void, signal: AbortSignal) {
   const name = file.name.toLowerCase();
   if (name.endsWith(".pdf") || file.type === "application/pdf") return (await import("@/lib/hh/pdf")).readPdf(file, progress, signal);
-  if (file.type.startsWith("image/")) return (await import("@/lib/hh/pdf")).readImage(file, progress, signal);
+  if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|bmp|gif)$/.test(name)) return (await import("@/lib/hh/pdf")).readImage(file, progress, signal);
   return file.text();
 }
 
@@ -53,12 +54,14 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
   const summaryRun = useRef(0);
   const [drag, setDrag] = useState(false);
   const [reading, setReading] = useState<string | null>(null);
+  const [readError, setReadError] = useState("");
   const [source, setSource] = useState<Source | null>(null);
   const reader = useRef<AbortController | null>(null);
   useEffect(() => () => { reader.current?.abort(); summaryRun.current++; }, []);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const clear = () => {
+    setReadError("");
     reader.current?.abort();
     setDoc(null); setSent(null); setAiEvidence(null); setPrivacyOpen(false); summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setEmailOpen(false); setTextOpen(false); setJump(null); setOpen(null); setText(""); setAddress("the property");
     if (fileRef.current) fileRef.current.value = "";
@@ -67,6 +70,11 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
   // Every uploaded contract is read locally and reviewed before sending redacted text.
   const load = async (input: { text: string; name: string } | { file: File }, sample = false) => {
     if (reading) return;
+    if ("file" in input) {
+      const issue = contractFileError(input.file);
+      if (issue) { setReadError(issue); if (fileRef.current) fileRef.current.value = ""; return; }
+    }
+    setReadError("");
     summaryRun.current++; setResult(null); setSource(null); setSummary(null); setEmailFlags(null); setDoc(null); setSent(null); setAiEvidence(null); setJump(null);
     reader.current?.abort();
     const controller = new AbortController(); reader.current = controller;
@@ -74,7 +82,11 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
     if ("file" in input) {
       setReading(`Reading ${input.file.name} on your device…`);
       try { t = await readFile(input.file, (message) => { if (!controller.signal.aborted) setReading(message); }, controller.signal); }
-      catch { if (controller.signal.aborted) return; console.warn("Contract file could not be read"); }
+      catch (error) {
+        if (controller.signal.aborted) return;
+        setReadError(error instanceof ContractReadError ? error.message : "Couldn't read text from that file — is it password-protected or blank? Try pasting the clauses instead.");
+        return;
+      }
       finally { if (!controller.signal.aborted) setReading(null); if (fileRef.current) fileRef.current.value = ""; }
     }
     if (controller.signal.aborted) return;
@@ -201,10 +213,11 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
             <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 text-primary"><FileUp className="size-8" /></div>
             <div><h2 className="text-lg font-semibold">Upload your contract</h2><p className="mt-2 text-sm text-muted-foreground">Drag a file here or choose one from your device.</p></div>
             <Button disabled={!!reading} onClick={() => fileRef.current?.click()} className="w-full max-w-xs"><FileUp /> Choose a file</Button>
-            <p className="text-xs text-muted-foreground">PDF, photo or text file<br />PDFs are sent to Google Gemini as they are. Photos and text are read on your device and redacted first.</p>
+            <p className="text-xs text-muted-foreground">{CONTRACT_FILE_HINT}</p>
+            {readError && <p role="alert" className="text-sm text-destructive">{readError}</p>}
             {reading && <p role="status" className="text-xs text-muted-foreground">{reading}</p>}
             <Button variant="link" size="sm" disabled={!!reading} onClick={() => void load({ text: SAMPLES.predatory.text, name: SAMPLES.predatory.name }, true)}>Try sample contract</Button>
-            <input ref={fileRef} type="file" accept=".txt,.pdf,text/plain,application/pdf,image/*" hidden onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
+            <input ref={fileRef} type="file" accept={CONTRACT_FILE_ACCEPT} hidden onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
           </div>
           <div className="flex flex-col gap-4 p-6 sm:p-8">
             <div><label htmlFor="contract-text" className="text-lg font-semibold">Or paste your contract</label><p className="mt-2 text-sm text-muted-foreground">Use the full agreement for a more complete review.</p></div>
@@ -212,7 +225,7 @@ export function ScannerSession({ initialInput }: { initialInput: { file: File } 
             <Button variant="secondary" disabled={!!reading || !text.trim()} onClick={() => void load({ text, name: "Pasted contract" })}>Check my contract <ArrowRight /></Button>
           </div>
         </div>
-        <p className="border-t border-border px-6 py-4 text-xs leading-relaxed text-muted-foreground">A PDF is sent to Google Gemini as it is, including any personal details. Pasted text, photos and text files are read in your browser: names, contact details, addresses and ID numbers are replaced with placeholders, you review them, and only that redacted text is sent. If AI is unavailable, a basic check runs on your device. Sample contracts run locally.</p>
+        <p className="border-t border-border px-6 py-4 text-xs leading-relaxed text-muted-foreground">PDFs, images and text files are read on your device. Personal details are replaced with placeholders for you to review, and only the reviewed text is sent to Google Gemini. If AI is unavailable, a basic check runs on your device. Sample contracts run locally.</p>
       </section>
 
       {doc && !result && !reading && <PrivacyCheck text={doc.text} items={doc.items} busy={!!reading} onEditText={applyEdit} onToggle={toggleItem} onRedact={redactSelection} onAnalyse={() => void analyse()} onClear={clear} />}

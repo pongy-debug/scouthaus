@@ -70,7 +70,7 @@ function FindCity() {
           {gl === false && <div className="city-globe-fallback" />}
         </div>
         <div className="city-globe-shade pointer-events-none absolute inset-0 -z-10" />
-        <div className="city-picker-panel relative z-10 w-full max-w-[640px] text-center">
+        <div className="city-picker-panel relative z-10 w-full max-w-160 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">Your next chapter starts here</p>
           <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl">Which city are you looking in?</h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-300">Find your city. Explore its neighbourhoods. Find a place to call home.</p>

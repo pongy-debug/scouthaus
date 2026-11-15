@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { FileSearch, House, Zap } from "lucide-react";
 import { Starfield } from "@/components/hh/Starfield";
 import { SiteLogo } from "@/components/hh/SiteNav";
-import { resetSpaceFlight, startSpaceFlight, useSpacePhase } from "@/lib/hh/transition";
+import { useSpacePhase } from "@/lib/hh/transition";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,23 +41,14 @@ function Landing() {
     return () => observer.disconnect();
   }, []);
 
-  const nav = useNavigate();
   const router = useRouter();
   const leaving = useSpacePhase() !== "idle";
   useEffect(() => {
-    // Showing the home page (first visit or back button) always starts from the normal state.
-    resetSpaceFlight();
     // Get the Find House page and its 3D Earth ready before the click, so the fly-out never waits on the network.
     void router?.preloadRoute?.({ to: "/find" })?.catch(() => { });
     void import("@/components/hh/CityGlobe").catch(() => { });
     for (const src of ["/textures/earth-day.jpg", "/textures/earth-clouds.png"]) new Image().src = src;
   }, [router]);
-  /** Find House: fade through black instead of switching pages abruptly. Modified clicks (new tab etc.) keep their normal behaviour. */
-  const flyToFind = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    e.preventDefault();
-    startSpaceFlight({ reduced: false, navigate: () => nav({ to: "/find" }) });
-  };
   const block = (e: MouseEvent<HTMLAnchorElement>) => { if (leaving) e.preventDefault(); };
   const off = leaving ? { "aria-disabled": true, tabIndex: -1 } : {};
   return (
@@ -78,7 +69,7 @@ function Landing() {
             <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">A little more clarity before you get the key.</h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-(--home-muted) sm:text-base">Look beyond the listing&nbsp;&nbsp;&bull;&nbsp;&nbsp;Explore your student housing options&nbsp;&nbsp;&bull;&nbsp;&nbsp;Uncover hidden costs&nbsp;&nbsp;&bull;&nbsp;&nbsp;Understand your contract before signing it</p>
             <nav aria-label="Main navigation" className="mt-8 grid w-full max-w-120 grid-cols-2 items-center gap-3 sm:gap-4">
-              <Link to="/find" onClick={flyToFind} {...off} className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><House className="size-4 sm:size-5" />Find House</Link>
+              <Link to="/find" onClick={block} {...off} className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><House className="size-4 sm:size-5" />Find House</Link>
               <Link to="/scanner" onClick={block} {...off} className="home-action flex min-h-14 sm:min-h-16 items-center justify-center gap-2 rounded-full px-3 py-3 text-xs font-bold transition sm:px-6 sm:text-base focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"><FileSearch className="size-4 sm:size-5" />Contract Check</Link>
             </nav>
 

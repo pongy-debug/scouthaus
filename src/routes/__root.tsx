@@ -14,6 +14,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SpaceTransition } from "../components/hh/SpaceTransition";
+import { PageTransitions } from "../components/hh/PageTransitions";
 
 function NotFoundComponent() {
   return (
@@ -123,9 +124,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <PageTransitions />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      {/* Home → Find House fly-out; mounted here so it survives the route change. */}
+      {/* Shared page fade; mounted here so it survives route changes. */}
       <SpaceTransition />
       <Toaster theme="dark" position="bottom-center" />
     </QueryClientProvider>

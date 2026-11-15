@@ -1,9 +1,9 @@
-// Home → Find House transition. One small store drives the phases so the home page and the root-level black overlay
+// Shared page transition. One small store drives the phases so all pages and the root-level black overlay
 // (which survives the route change) follow the same clock.
 //
 //   fade     150ms    the screen fades to black (no zoom); the overlay is opaque from here on
 //   (navigate — hidden behind the black overlay)
-//   fadein   2000ms   the Find House page fades in from black
+//   fadein   2000ms   the destination page fades in from black
 // Reduced motion: the same, with a 150ms fade back in (fadeout) instead of the 2s one.
 import { useSyncExternalStore } from "react";
 
@@ -27,7 +27,7 @@ export function startSpaceFlight({ reduced, navigate }: { reduced: boolean; navi
   const [reveal, revealMs] = reduced ? (["fadeout", SPACE_MS.reducedIn] as const) : (["fadein", SPACE_MS.fadeIn] as const);
   set("fade");
   later(SPACE_MS.fadeOut, () => {
-    void Promise.resolve(navigate()).catch(() => {}).then(() => {
+    void Promise.resolve().then(navigate).catch(() => {}).then(() => {
       if (phase !== "fade") return;
       set(reveal);
       later(revealMs, () => set("idle"));
